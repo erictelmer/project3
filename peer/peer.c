@@ -1,0 +1,931 @@
+/****************************************************************************
+ *																																					*
+ * peer.c																																		*
+ *																																					*
+ * Description: This file contains the C source code for the BitTorrent			*
+ * 				file transfer application for Project2.														*
+ * 																																					*
+ * 				The implementation of this BitTorrent is based on code 						*
+ * 				originally authored by:																						*
+ * 					Ed Bardsley <ebardsle+441@andrew.cmu.edu>												*
+ * 					Dave Andersen																										*
+ *																																					*
+ * 				The current implementation of BitTorrent supports									* 
+ * 				the following functionality:																			*
+ * 					1. Generates a WHOHAS packet and sends the packet to						*
+ * 					   its peers after receiving a GET request											*
+ * 					2. Responds with correct IHAVE packet when receiving 						*
+ * 					   a WHOHAS packet																							*
+ * 					3. Does not send an IHAVE packet when none of the 							*
+ * 					   chunks from the WHOHAS packet do not appear in 							*
+ * 					   the hashes																										*
+ *																																					*
+ ***************************************************************************/
+
+#include "peer.h"
+//#include "orderedList.h"
+
+struct tm * getTime()
+{
+  time_t rawtime;
+  struct tm *timeinfo;
+
+  time(&rawtime);
+  timeinfo = gmtime(&rawtime);
+  return timeinfo;
+}
+
+int main(int argc, char **argv) {
+  bt_config_t config;
+
+  bt_init(&config, argc, argv);
+  log = open_log("debug.txt");
+  Log(log, "--------- peer.c now running ---------\n");
+
+  DPRINTF(DEBUG_INIT, "peer.c main beginning\n");
+
+#ifdef TESTING
+  config.identity = 11; // Team 11
+  strcpy(config.chunk_file, "chunkfile");
+  strcpy(config.has_chunk_file, "haschunks");
+#endif
+
+  Log(log, "Parsing command line args\n");
+  bt_parse_command_line(&config);
+
+#ifdef DEBUG
+  if (debug & DEBUG_INIT) {
+    bt_dump_config(&config);
+  }
+#endif
+
+  peer_run(&config);
+  return 0;
+}
+
+int endDownload(hashList *downloadingHashes, hashNode *node, int status){
+  Log(log, "Method call: endDownload\n");
+
+  if(downloadingHashes == NULL){
+    Log(log, "ERROR: downloadingHashes is NULL. Returning FAILURE\n");
+    return FAILURE;
+  }
+
+
+  hashNode *reqNode;
+  char sendbuf[BUFLEN];
+  char *senddata = sendbuf + HEADERLEN;
+  char *nextHash = senddata + 4; 
+  unsigned int senddatalen;
+  PacketHeader ph;
+  unsigned char readHashes = 0;
+
+  memset(sendbuf, 0, BUFLEN);
+  
+  //If node == NULL then download failed, skip freeing
+  if (node != NULL){
+
+    //If status == -1 that means the file didn't download correctly
+    //If so re add it to the requestedHashes
+    if (status == -1){
+      reqNode = newHashNode(node->hashp, node->chunkOffset);
+      putTimeout(reqNode, getTime());
+      appendNode(globalReqHashes, reqNode);
+    }
+
+    //Remove and free node from downloadingHases
+    removeNode(downloadingHashes, node);
+    if (node->downList != NULL)
+      freeDownloadList(node->downList);
+    freeNode(node);
+
+  }
+
+  //If there are no more requestedHashes, 
+  //then close the file but ONLY IN REQHASHES 
+  if (globalReqHashes->start == NULL){
+    Log(log, "Requested hashes empty, closing output file\n");
+    Log(log, "Adding padding\n");
+    fclose(globalReqHashes->fstream);
+    //Don't deleted this print statement
+    printf("Got File\n");
+    return SUCCESS;
+  }
+
+
+  // There are more requestedHashes remaining
+  // Send a WHOHAS for all of the remaining requestedHashes
+  reqNode = globalReqHashes->start;
+  while(1){
+    while (reqNode != NULL){
+      if (nextHash + HASHSIZE > sendbuf + BUFLEN){
+	Log(log, "nextHash + HASHSIZE: > sendbuf + BUFLEN.\nBREAK\n");
+	break;
+      }
+      memcpy(nextHash,&reqNode->hashp, HASHSIZE);
+      readHashes++;
+      nextHash += HASHSIZE;
+      reqNode = reqNode->next;
+    }
+
+    memcpy(senddata, &readHashes, sizeof(readHashes));
+    senddatalen = (unsigned int)(nextHash - sendbuf);
+    createPacketHeader(&ph, WHOHAS, HEADERLEN, nextHash - sendbuf, 0, 0);
+    putHeader(&ph, sendbuf);
+
+    Log(log, "Sending WHOHAS after finishing one hash\n");
+    waiting = 1;
+    time(&getTimeout);
+
+    sendToAllPeers(globalsock, sendbuf, senddatalen, globalconfig);
+    if (reqNode == NULL) break;
+    readHashes = 0;  
+
+    // Reset nexHash to point to beginning of payload
+    nextHash = senddata + 4;
+    memset(sendbuf, 0, BUFLEN);
+  }
+
+  return SUCCESS;
+}
+
+int endUpload(hashList *uploadingHashes, hashNode *node){
+  Log(log, "Method call: endUpload\n");
+  removeNode(uploadingHashes, node);
+  if (node->upList != NULL)
+    freeUploadList(node->upList);
+  freeNode(node);
+  return SUCCESS;
+}
+
+int sendNextData(int sock, hashNode *node, FILE *datafile, int seqNum){
+  Log(log, "Method call: sendNextData\n");
+
+  PacketHeader ph;
+  socklen_t addrlen;
+  char sendbuf[BUFLEN];
+  char *sendPayload;
+  unsigned int sendPayloadLen;
+
+  sendPayload = sendbuf + HEADERLEN;
+  addrlen = sizeof(struct sockaddr_in);
+
+  if (seqNum < 0){
+    Log(log, "seqNum < 0, seqNum: %d\n", seqNum);
+    node->seqNum++;
+    seqNum = node->seqNum;
+    Log(log, "seqNum is now: %d\n", seqNum);
+  }
+
+  sendPayloadLen = putData(sendPayload, node, datafile, seqNum);
+  Log(log, "Good. Successfully put data\n");
+
+  createPacketHeader(&ph, DATA, HEADERLEN, HEADERLEN + sendPayloadLen, 
+		     seqNum, 0);
+  putHeader(&ph, sendbuf);
+
+  spiffy_sendto(sock, sendbuf, sendPayloadLen + HEADERLEN, 0, 
+		(const struct sockaddr *) &node->addr, addrlen);
+  sentDATA(node->upList, seqNum);
+  Log(log, "End call to sendNextData\n");
+
+  return SUCCESS;
+}
+
+void monitor(int sock, bt_config_t *config, hashList *requestedHashes,
+	     hashList *downloadingHashes, hashList* uploadingHashes){
+  Log(log, "Method call: monitor\n");
+
+  // Check if any timeouts of uploadingHashes
+  hashNode *node;
+  int resendSeqNum;
+  double timeoutSecs = 5;
+  double connectionTimeout = 45;
+  double getTimeoutSecs = 20;
+
+  if(uploadingHashes == NULL){
+    Log(log, "uploadingHashes is NULL. Returning from function\n");
+    return;
+  }
+
+  // Check uploading connections and fill window
+  node = uploadingHashes->start;
+  while(node != NULL){   
+     while(node->seqNum < node->ackNum + WINDOWSIZE){
+      if (node->seqNum >= MAXSEQNUM) break;
+      sendNextData(sock, node, uploadingHashes->fstream, -1); 
+     }
+     
+     // Check for packet timeouts
+     while((resendSeqNum = getTimeoutPacket(node->upList,timeoutSecs))  != FAILURE){
+      sendNextData(sock, node, uploadingHashes->fstream, resendSeqNum);
+     }
+
+     if (difftime(mktime(getTime()), mktime(&node->timeout)) > connectionTimeout){
+       Log(log,"TIMEOUT, Dropping upload connection\n");
+       endUpload(uploadingHashes, node);
+       //endUpload
+     } 
+
+    node = node->next;
+  }
+
+  //Check Downloading Connections for timeouts
+  node = downloadingHashes->start;
+  while(node != NULL){
+    if (difftime(mktime(getTime()), mktime(&node->timeout)) > connectionTimeout){
+       //endDownload with status failure
+      Log(log, "TIMEOUT dropping download connection and trying again\n");
+      endDownload(downloadingHashes, node, -1);
+     } 
+
+    node = node->next;
+  }
+
+  //Check getTimeout
+  if (waiting == 1){
+    if (difftime(mktime(getTime()), getTimeout) > getTimeoutSecs)
+      {
+	endDownload(downloadingHashes, NULL, -1);
+      }
+  }
+
+  Log(log, "End call to monitor\n");
+}
+
+void sendToAllPeers(int sock, char *sendbuf, unsigned int senddatalen, 
+		    const bt_config_t *config){
+  Log(log, "Method call: sendToAllPeers\n");
+
+  struct sockaddr_in addr;
+  socklen_t addrlen;
+  bt_peer_t *peer;
+
+  if(config == NULL){
+    Log(log, "config is NULL. Returning from function\n");
+    return;
+  }
+
+  peer = config->peers;
+  addrlen = sizeof(addr);
+
+  while(peer != NULL){
+
+    if (peer->id == config->identity){
+      peer=peer->next;
+      continue;
+    }
+    addr = peer->addr;
+    Log(log,"Sending WHOHAS to %s:%d\n", inet_ntoa(addr.sin_addr),
+	ntohs(addr.sin_port));
+#ifdef SPIFFY
+    spiffy_sendto(sock, sendbuf, BUFLEN, 0, 
+		  (const struct sockaddr *) &addr, addrlen);
+#else
+    sendto(sock, sendbuf, BUFLEN, 0, 
+	   (const struct sockaddr *) &addr, addrlen);
+#endif
+    peer = peer->next;
+  }
+
+  Log(log, "End call to sendToAllPeers\n");
+}
+
+unsigned int saveData(const char *data, hashNode *node,
+		      FILE *f, int seqNum, unsigned int datalen){
+  Log(log, "Method call to saveData\n");
+
+  long int foffset;
+  unsigned int written;
+
+  foffset = (node->chunkOffset * CHUNKSIZE) + (seqNum * (MAXPACKETSIZE -HEADERLEN));
+  Log(log, "FOFFSET: %ld\n", foffset);
+  
+
+  if (foffset < 0)
+    Log(log, "FOFFSET < 0\n");
+
+  // Set pos
+  fseek(f, SEEK_SET, foffset);
+  written = fwrite(data, sizeof(char), datalen, f);
+
+  Log(log, "written: %u\ndatalen: %u\n", written, datalen);
+
+  if (written != datalen){
+    Log(log, "ERROR. written != datalen. Returning FAILURE\n");
+    return FAILURE;
+  }
+  
+  return written;
+}
+
+unsigned int putData(char *senddata, hashNode *node, FILE *f, int seqNum){
+  Log(log, "Method call: putData\n");
+
+  unsigned int bytes = MAXPACKETSIZE - HEADERLEN;
+  long int foffset;
+  unsigned int read;
+
+  foffset = (node->chunkOffset * CHUNKSIZE) + (seqNum * bytes);
+
+  if (seqNum == (MAXSEQNUM)){
+    bytes = CHUNKSIZE - (bytes * (MAXSEQNUM));
+  }
+
+  if (foffset < 0)
+    Log(log, "FOFFSET < 0\n");
+
+  // Set pos
+  Log(log, "foffset: %ld, chunkOffset: %d\n", foffset,node->chunkOffset);
+
+  fseek(f, SEEK_SET, foffset);
+  
+  read = fread(senddata, sizeof(char), bytes, f);
+
+  Log(log, "read: %u\n", read);
+
+  if (read != bytes){
+    Log(log, "read != bytes. Returning FAILURE\n");
+    return FAILURE;
+  }
+  
+  return read;
+}
+
+int doIHaveChunk(const char *reqHash, const char * has_chunk_file){
+  Log(log, "Method call: doIHaveChunk\n");
+
+  FILE *fd;
+  char chunk_hash[HASHSIZE];
+  unsigned int id;
+
+  Log(log, "Opening has_chunk_file\n");
+  fd = fopen(has_chunk_file, "r");
+
+  if (fd == NULL){ //change to CHK_NULL-- why??
+    Log(log, 
+	"Error: has_chunk_file is NULL. Closing file and returning FAILURE\n");
+    fclose(fd);
+    return FAILURE;
+  }
+
+  Log(log, "Success: Opened has_chunk_file\n");
+
+  while((id = getNextHashFromFile(fd, chunk_hash)) != FAILURE){
+    // Search requestedHashes for chunk_hash
+    // Copy the hash into the next space in senddata if match is found
+    if(memcmp(chunk_hash,reqHash, HASHSIZE) == 0){
+      Log(log, "id: %u\nReturning SUCCESS", id);
+      return id;
+    }
+  }
+
+  Log(log, "id not found in getNextHashFromFile. Returning FAILURE\n");
+  return FAILURE;
+}
+
+int generateResponseToIHAVE(const char *data,char *senddata, 
+			    hashList *requestedHashes, 
+			    hashList *downloadingHashes, 
+			    struct sockaddr_in *addr){
+  Log(log, "Method call: generateResponseToIHAVE\n");
+
+  // If hash is found in requestedHashes, remove hash, add to
+  // downloadingHashes with ackNum = -1, and put hash in body
+	
+  unsigned char numChunkHashes;
+  hashNode * reqNode;
+  char reqHash[HASHSIZE];
+  const char * chunk_hashes;
+  int i;
+
+  chunk_hashes = data + 4;
+  memcpy(&numChunkHashes, data, sizeof(numChunkHashes));
+
+  for(i = 0; i < numChunkHashes; i++){
+    memcpy(reqHash,chunk_hashes + (HASHSIZE * i),HASHSIZE);
+
+    // Copy hash into next space in senddata if match found
+    if((reqNode = findHashNode(requestedHashes, reqHash)) != NULL){
+      Log(log, "Found match in requestedHashes,");
+
+      waiting = 0;
+
+      removeNode(requestedHashes, reqNode);
+      appendNode(downloadingHashes, reqNode);
+
+      putAddr(reqNode, addr);
+      putTimeout(reqNode, getTime());
+      reqNode->ackNum = -1;
+      reqNode->downList = newDownloadList();
+      memcpy(senddata, reqHash, HASHSIZE);
+      Log(log, " Returning SUCCESS\n");
+      return SUCCESS;
+    }
+  }
+	
+  Log(log, "Match not found in requestedHashes. Returning FAILURE\n");
+  return FAILURE;
+}
+
+int generateResponseToGET(const char *data, char *senddata,
+			  const bt_config_t *config, 
+			  hashList *uploadingHashes, 
+			  struct sockaddr_in *addr){
+  Log(log, "Method call: generateResponseToGET\n");
+
+  // Check doIHaveChunk and set up uploadConnection, sending first DATA
+
+  char reqHash[HASHSIZE];
+  hashNode *reqNode;
+  unsigned int id;
+  memcpy(reqHash, data, HASHSIZE);
+
+  if ((id = doIHaveChunk(reqHash, config->has_chunk_file)) == FAILURE){
+    Log(log, "Received GET for an invalid chunk. Returning FAILURE\n");
+    return FAILURE;
+  }
+
+  if (findAddrNode(uploadingHashes, addr) != NULL){
+    Log(log, "Peer who we are uploading to tried to start another download");
+    return FAILURE;
+  }
+
+  //Put data into senddata
+  reqNode = newHashNode(reqHash, id);
+  putAddr(reqNode, addr);
+  putTimeout(reqNode, getTime());
+  appendNode(uploadingHashes, reqNode);
+  reqNode->upList = newUploadList();
+  //  return putNextData(senddata,reqNode,uploadingHashes->fstream);
+
+  Log(log, "Returning SUCCESS\n");
+  return SUCCESS;
+}
+
+unsigned int generateResponseToDATA(const char *data, char *senddata, 
+				    const bt_config_t *config, 
+				    hashList *downloadingHashes, 
+				    struct sockaddr_in *addr, 
+				    unsigned int seqNum, 
+				    unsigned int datalen){
+  Log(log, "Method call: generateResponseToDATA\n");
+
+  // Find ipaddr in downloadingHashes and save data
+  unsigned int ack;
+  hashNode *node = findAddrNode(downloadingHashes, addr);
+
+  if (node == NULL){
+    Log(log, "findAddrNode in genRespToDATA is NULL. Returning FAILURE\n");
+    return FAILURE;
+  }
+  
+  //updateTimeout
+  putTimeout(node, getTime());
+  
+  saveData(data,node, downloadingHashes->fstream,seqNum,datalen);
+  //saveData
+
+  ack = receivedDATA(node->downList, seqNum);
+
+  if (ack == MAXSEQNUM)
+    endDownload(downloadingHashes, node, 0);
+  
+  if (ack < 0)
+    Log(log, "RecievedDATA returned -1\n");
+  
+  Log(log, "Returning ack: %u\n", ack);
+  return ack;
+}
+
+
+int generateResponseToACK(const char *data, char *senddata, 
+			  const bt_config_t *config, 
+			  hashList *uploadingHashes, 
+			  struct sockaddr_in *addr, 
+			  unsigned int ackNum){
+  Log(log, "Method call: generateResponseToACK\n");
+
+  unsigned int lost;
+  hashNode *node = findAddrNode(uploadingHashes, addr);
+
+  if (node == NULL){
+    Log(log, "Node is NULL. Returning FAILURE\n");
+    return FAILURE;
+  }
+
+  //Update Timeout
+  putTimeout(node, getTime());
+
+  node->ackNum = ackNum;
+  lost = receivedACK(node->upList, ackNum);
+
+  if(lost == -1){
+    Log(log, "lost == -1. Making call to sendNextData\n");
+    sendNextData(globalsock, node, uploadingHashes->fstream, ackNum + 1);
+  }
+  if(ackNum == MAXSEQNUM){
+    endUpload(uploadingHashes, node);
+  }
+  
+  Log(log, "Returning SUCCESS\n");
+  return SUCCESS;
+}
+
+int generateResponseToWHOHAS(const char *data, 
+			     char *senddata, 
+			     const bt_config_t *config){
+  Log(log, "Method call: generateResponseToWHOHAS\n");
+
+  int i;
+  FILE *fd;
+  unsigned char hits = 0;
+  const char *has_chunk_file, *chunk_hashes;
+  unsigned char numChunkHashes;
+
+  has_chunk_file = config->has_chunk_file;
+
+  // Get number of chunk hashes from payload
+  memcpy(&numChunkHashes, data, sizeof(numChunkHashes));
+
+  // Chunk hashes start after first 4 bytes of data
+  chunk_hashes = data + 4;
+
+  Log(log, "Opening has_chunk_file\n");
+  fd = fopen(has_chunk_file, "r");
+
+  if (fd == NULL){
+    Log(log, "Error: has_chunk_file is NULL. Closing file. Returning FAILURE\n");
+    fclose(fd);
+    return FAILURE;
+  }
+
+  Log(log, "Success: Opened has_chunk_file\n");
+
+  // Read has_chunk_file line by line comparing each 
+  // chunk hash to requested hashes to see if chunkHash appears
+	
+  char reqHash[HASHSIZE];
+  for(i = 0; i < numChunkHashes; i++){
+    memcpy(reqHash,chunk_hashes + (HASHSIZE * i),HASHSIZE);
+
+    //If we found a match, copy the hash into the next space in senddata
+    if(doIHaveChunk(reqHash, has_chunk_file) != FAILURE){
+      Log(log, "Found match in has_chunk_file\n");
+      memcpy((senddata + 4) + (hits*HASHSIZE), reqHash, HASHSIZE);
+      hits++;
+    }
+
+  }
+
+  fclose(fd);
+
+  //Copy number of hashchunks into data
+  memcpy(senddata, &hits, sizeof(hits));
+  Log(log, "WHOHAS num hits: %d\n", hits);
+
+  return hits;
+}
+
+void process_inbound_udp(int sock, const bt_config_t *config, 
+			 hashList *requestedHashes, 
+			 hashList *downloadingHashes, 
+			 hashList *uploadingHashes){
+  Log(log, "Method call: process_inbound_udp\n");
+  
+  PacketHeader ph;
+  struct sockaddr_in from;
+  socklen_t fromlen;
+  char buf[BUFLEN];
+  char sendbuf[BUFLEN];
+  char *data;
+  char *senddata;
+  int readret;
+  unsigned char hits;
+  unsigned int senddataLen;
+  unsigned int ack;
+  fromlen = sizeof(from);
+
+#ifdef SPIFFY
+  Log(log, "Using spiffy_recvfrom\n");
+  readret = spiffy_recvfrom(sock, buf, BUFLEN, 0, 
+			    (struct sockaddr *) &from, &fromlen);
+#else
+  Log(log, "NOT using spiffy_recvfrom\n");
+  readret = recvfrom(sock, buf, BUFLEN, 0,
+		     (struct sockaddr *) &from, &fromlen);
+#endif
+  if (readret <= 0){
+    Log(log, "Error: spiffy_recvfrom failed\n");
+  } else{
+    Log(log, "Success: spiffy_recvfrom got a packet header from %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
+
+    //Parse the packet headegr into the fields
+    fillPacketHeader(&ph, buf);
+
+    // Set data to point to the data in the packet
+    data = buf + HEADERLEN;
+    senddata = sendbuf + HEADERLEN;
+
+    // Check the validity of the packet received
+    if((ph.magicNum == 15441) && (ph.version == 1)){
+      switch(ph.type){
+      case WHOHAS :
+	Log(log, "Received WHOHAS Request\n");
+			
+	//Don't allow multiple downloads to a single peer
+	if (findAddrNode(uploadingHashes, &from) != NULL){
+	  Log(log, "Peer tried to download multiple chunks at once\n");
+	  break;
+	 }
+	
+	//Data is buf after header
+	hits = generateResponseToWHOHAS(data,senddata,config);
+	if (hits > 0){
+	  senddataLen = (hits * HASHSIZE) + 4;
+	  createPacketHeader(&ph, IHAVE, HEADERLEN, 
+			     HEADERLEN + senddataLen, 0, 0);
+	  putHeader(&ph, sendbuf);
+
+#ifdef SPIFFY
+	  Log(log, "Using spiffy_sendto\n");
+	  spiffy_sendto(sock, sendbuf, BUFLEN, 0, 
+			(const struct sockaddr *) &from, fromlen);
+#else
+	  Log(log, "NOT Using spiffy_sendto\n");
+	  sendto(sock, sendbuf, BUFLEN, 0, 
+		 (const struct sockaddr *) &from, fromlen);
+#endif
+	  Log(log, "Sent to WHOHAS requester\n");
+	}
+	break;
+
+      case IHAVE :
+	Log(log, "Received IHAVE Request\n");
+
+	//Dont want to downmload two chunks from one peer
+	if (findAddrNode(downloadingHashes, &from) != NULL){
+	  Log(log, "Received IHAVE from current downloading peer\n");
+	  break;
+	}
+	hits = generateResponseToIHAVE(data, senddata, 
+				       requestedHashes,
+				       downloadingHashes, &from);
+	if (hits == SUCCESS){
+	  senddataLen = HASHSIZE;
+	  createPacketHeader(&ph, GET, HEADERLEN, HEADERLEN + senddataLen, 0,0);
+	  putHeader(&ph, sendbuf);
+	  spiffy_sendto(sock, sendbuf, HEADERLEN + senddataLen, 0,
+			(const struct sockaddr *) &from, fromlen);
+	  Log(log, "Sent IHAVE request\n");
+	}
+	//if (findHashNode(requestedHashes, chunk_hash) != NULL);
+	//check to make sure you rewquested that chunk
+	//setupDowloadConnection
+	break;
+      case GET :
+	Log(log, "Received GET Request\n");
+	if ((senddataLen = 
+	     generateResponseToGET(data,senddata, config, 
+				   uploadingHashes, &from )) != FAILURE){
+	  /*createPacketHeader(&ph ,DATA, HEADERLEN, 
+			     HEADERLEN + senddataLen, 0, 0);
+	  putHeader(&ph, sendbuf);
+	  spiffy_sendto(sock, sendbuf, senddataLen + HEADERLEN, 0, 
+	  (const struct sockaddr *) &from, fromlen);*/
+			}
+	//check to make sure you have
+	//setup Upload connection
+	//send first WINDOW_SIZE packets
+	break;
+      case DATA :
+	Log(log, "Recieved DATA\n");
+	
+	// Find node in downloading Hashes
+	ack = generateResponseToDATA(data,senddata, config, downloadingHashes, 
+				     &from, ph.seqNum, 
+				     ph.packetLen - ph.headerLen);
+	if (ack == FAILURE) break;
+	createPacketHeader(&ph, ACK, HEADERLEN, HEADERLEN, 0,ack);
+	putHeader(&ph, sendbuf);
+	spiffy_sendto(sock, sendbuf, HEADERLEN, 0,
+		      (const struct sockaddr *) &from, fromlen);
+				
+	//find download connection
+	//if seq != nextExpected
+	//buffer chunk, send last ACK
+	//else save data, send ACK
+	break;
+      case ACK :
+	Log(log, "Recieved ACK\n");
+	//find node in uploadingHashes
+	generateResponseToACK(data,senddata,config,uploadingHashes, 
+			      &from, ph.ackNum);
+	//if not correct ACK
+	//else send next chunk
+	break;
+      case DENIED :
+	break;
+      default :
+	//Do something else
+	;
+      }
+    }
+
+    //do stuff with it
+  }
+}
+
+void process_get(char *chunkfile, char *outputfile, const bt_config_t *config) {
+  Log(log, "Method call: process_get\n"); 
+
+  FILE *fd;
+  FILE *outf;
+  char chunk_hash[HASHSIZE];
+  char sendbuffer[BUFLEN];
+  PacketHeader ph;
+  char *sendbuf = sendbuffer;// + 16;
+  char *payload = sendbuf + HEADERLEN;
+  char *nextHash = payload + 4;
+  int doneReading = 0;
+  unsigned char readHashes = 0;
+  hashNode *reqNode;
+  unsigned int id;
+  unsigned int senddatalen;
+
+  // Create output file if it doesn't exist
+  outf = fopen(outputfile, "wb");
+  globalReqHashes->fstream = outf;
+
+  memset(sendbuf,0,BUFLEN);
+  fd = fopen(chunkfile, "r");
+  if (fd == NULL){
+    printf("Invalid chunk_file\n");
+    return;
+  }
+  while(doneReading == 0){
+    // Exit once done reading file
+    while(1){
+      // Exit once at MAX_PACKET_SIZE
+      if (nextHash + HASHSIZE > sendbuf + BUFLEN){
+	Log(log, "Reached MAX_PACKET_SIZE\n");
+	break;
+      }
+      if ((id = getNextHashFromFile(fd,chunk_hash)) == FAILURE){
+	Log(log, "No more hashes to get from file. Done reading\n");
+	doneReading = 1;
+	break;
+      }
+
+      readHashes++;
+      memcpy(nextHash, chunk_hash, HASHSIZE);
+      reqNode = newHashNode(chunk_hash, id);
+      appendNode(globalReqHashes,reqNode);
+      putTimeout(reqNode, getTime());
+      nextHash += HASHSIZE;
+    }
+
+    memcpy(payload, &readHashes, sizeof(readHashes));
+    senddatalen = (unsigned int)(nextHash - sendbuf);
+    createPacketHeader(&ph, WHOHAS, HEADERLEN, senddatalen, 0, 0);
+
+    putHeader(&ph, sendbuf);
+    sendToAllPeers(globalsock, sendbuffer, senddatalen, config);
+		
+    //TODO: SEND TO PEERS
+    readHashes = 0;
+
+    // Reset nexHash to point to beginning of payload
+    nextHash = payload + 4;
+    memset(sendbuf, 0, BUFLEN);
+  }
+  
+  time(&getTimeout);
+  waiting = 1;
+
+  Log(log, "Closing fd\n");
+  fclose(fd);
+}
+
+void handle_user_input(char *line, void *cbdata) {
+  Log(log, "Method call: handle_user_input\n");
+
+  char chunkf[128], outf[128];
+
+  bzero(chunkf, sizeof(chunkf));
+  bzero(outf, sizeof(outf));
+
+  if (sscanf(line, "GET %120s %120s", chunkf, outf)) {
+    if (strlen(outf) > 0) {
+      process_get(chunkf, outf, globalconfig);
+    }
+  }
+}
+
+void peer_run(bt_config_t *config) {
+  Log(log, "Method call: peer_run\n");
+  FILE *fchecker;
+  int listener;
+  struct sockaddr_in myaddr;
+  fd_set readfds;
+  struct user_iobuf *userbuf;
+  struct timeval tv;
+
+  // requestedHashes has one node for each hash in the file from GET request
+  hashList *requestedHashes = newHashList();
+  hashList *downloadingHashes = newHashList();
+  hashList *uploadingHashes = newHashList();
+
+  globalReqHashes = requestedHashes;
+  globalconfig = config;
+  uploadingHashes->fstream = fopen(config->tar_file, "rb");
+  waiting = 0;
+
+  FD_ZERO(&readfds);
+  Log(log, "tar_file: %s\n", config->tar_file);
+
+  if (uploadingHashes->fstream == NULL){
+    Log(log, "Edit masterchunks file and put:\n   File: blah.tar\n   Chunks:\n");
+    return;
+  }
+  //Check if has Chunk file exists
+  if ((fchecker = fopen(config->has_chunk_file, "r")) ==  NULL){
+    Log(log, "Provided invalid has_chunk_file");
+    return;
+  }
+  fclose(fchecker);
+
+
+  if ((userbuf = create_userbuf()) == NULL) {
+    Log(log, "Error: peer_run could not allocate userbuf\n");
+    Log(log, "EXITING WITH FAILURE\n");
+    exit(EXIT_FAILURE);
+  }
+
+  Log(log, "Success: peer_run allocated userbuf\n");
+
+  if ((listener = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1) {
+    Log(log, "Error: peer_run could not create socket\n");
+    Log(log, "EXITING WITH FAILURE\n");
+    exit(EXIT_FAILURE);
+  }
+
+  Log(log, "Success: peer_run created socket\n");
+
+  bzero(&myaddr, sizeof(myaddr));
+  myaddr.sin_family = AF_INET;
+  myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  myaddr.sin_port = htons(config->myport);
+
+  if (bind(listener, (struct sockaddr *) &myaddr, sizeof(myaddr)) == -1) {
+    Log(log, "Error: peer_run could not bind socket\n");
+    Log(log, "EXITING WITH FAILURE\n");
+    exit(EXIT_FAILURE);
+  }
+  globalsock = listener;
+
+  Log(log, "Success: peer_run created bind to socket\n");
+  Log(log, "I am running on %s:%d\n\n",
+      inet_ntoa(myaddr.sin_addr),
+      ntohs(myaddr.sin_port));
+
+#ifdef SPIFFY
+  Log(log, "Initializing with SPIFFY\n");
+  spiffy_init(config->identity, (struct sockaddr *)&myaddr, sizeof(myaddr));
+#endif
+
+  while (1) {
+    // Check for user input and if sending check timeouts,
+    // then read the data from connections
+
+    int nfds;
+    FD_SET(STDIN_FILENO, &readfds);
+    FD_SET(listener, &readfds);
+    tv.tv_sec = 2;
+
+    nfds = select(listener+1, &readfds, NULL, NULL, &tv);
+
+    if (nfds > 0) {
+      if (FD_ISSET(listener, &readfds)) {
+	process_inbound_udp(listener,config, requestedHashes, 
+			    downloadingHashes, uploadingHashes);
+      }
+
+      if (FD_ISSET(STDIN_FILENO, &readfds)) {
+	process_user_input(STDIN_FILENO, userbuf, handle_user_input,
+			   "Currently unused");
+	downloadingHashes->fstream = requestedHashes->fstream;
+      }
+    }
+
+    monitor(listener, config,  requestedHashes, 
+	    downloadingHashes, uploadingHashes);
+  }
+
+  Log(log, 
+      "Freeing requestedHashes, downloadingHashes, uploadingHashes, userbuf\n");
+  freeList(requestedHashes);
+  freeList(downloadingHashes);
+  freeList(uploadingHashes);
+  free(userbuf);
+}
