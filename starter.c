@@ -44,17 +44,16 @@
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
 #define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
 
-//Command Line Args
-int HTTPport;
-int HTTPSport;
-char logfile[30];
-char lockfile[30];
-char wwwfolder[30];
-char CGIfolder[30];
-char privateKeyFile[30];
-char certificateFile[30];
 
-//
+struct typedef{
+  char log[CMDLNSTRLEN];
+  float alpha;
+  unsigned short listen_port;
+  char fake_ip[CMDLNSTRLEN];
+  char dns_ip[CMDLNSTRLEN];
+  unsigned short dns_port;
+  char www_ip[CMDLNSTRLEN];
+}command_line_s;
 
 
 void sigINThandler(int);
@@ -97,59 +96,8 @@ int close_socket(int sock)
 
 
 
-int printHelp(){
-  printf("usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder> <CGI folder or script name> <private key file> <certificate file>\nHTTP port\n  – the port for the HTTP (or echo) server to listen on\nHTTPS port\n  – the port for the HTTPS server to listen on\nlog file\n  – file to send log messages to (debug, info, error)\nlock file\n  – file to lock on when becoming a daemon process\nwww folder\n  – folder containing a tree to serve as the root of a website\nCGI folder or script name\n  – folder containing CGI programs—each file should be executable;\n  if a file it should be a script where you redirect all /cgi/* URIs to\nprivate key file\n  – private key file path\ncertificate file\n  – certificate file path\n");
-  return -1;
-}
 
-int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
-  if (argc != 9)
-    return printHelp();
-  //1 log
-  //2 alpha
-  //3 listen-port
-  //4 fake-ip
-  //5 dns-ip
-  //6 dns-port
-  //7 www-ip
 
-  if (strlen(argv[1]) >= strlen(commandLine->logfile))
-      printf("Log file too large\n");
-  else if (sscanf(argv[3],"%s",commandLine->logfile) < 1)
-    return printHelp();
-
-  if (strlen(argv[2]) >= sizeof(commandLine->alpha))
-      printf("Alpha too large\n");
-  else if (sscanf(argv[4],"%f", &commandLine->alpha) < 1)
-    return printHelp();
-
-  if (strlen(argv[3]) >= sizeof(commandLine->listenPort))
-      printf("listenPort too large\n");
-  else if (sscanf(argv[5],"%d",&commandLine->listenPort) < 1)
-    return printHelp();
-
-  if (strlen(argv[6]) >= strlen(commandLine->fake-ip))
-      printf("fake-ip too large\n");
-  else if (sscanf(argv[6],"%s",commandLine->fake-ip) < 1)
-    return printHelp();
-
-  if (strlen(argv[7]) >= strlen(commandLine->dns-ip))
-      printf("dns-ip too large\n");
-  else if (sscanf(argv[7],"%s",commansLine->dns-ip) < 1)
-    return printHelp();
-  
-   if (strlen(argv[3]) >= sizeof(commandLine->dns-port))
-      printf("dnsPort too large\n");
-  else if (sscanf(argv[5],"%d",&commandLine->dns-Port) < 1)
-    return printHelp(); 
-
-  if (strlen(argv[8]) >= strlen(commandLine->www-ip))
-      printf("CertificateFile too large\n");
-  else if (sscanf(argv[8],"%s",commandLine->www-ip) < 1)
-    return printHelp();
-  
-  return 0;
-}
 int waitForAction(fd_set master, fd_set * read_fds, fd_set *write_fds, int fdmax, struct timeval tv, int fdcont){
 
   int i;
@@ -287,21 +235,17 @@ int setupListenerSocket(int * plistener, int port){
 int main(int argc, char* argv[])
 {
   
-  int listener;
-  int Slistener;
+  command_line_s commandLine;
 
-  fd_set https;
+  int browserListener;
+ 
   fd_set master;
   fd_set read_fds;
   fd_set write_fds;
   int fdmax;
-  int fd;
+  int sock;
   struct timeval tv;
   
-  SSL_CTX* ctx;
-  SSL* ssl;
-  int sslsize=20;
-  SSL ** ssl_set = newSSLSet(sslsize);
   char buf[BUF_SIZE];
   int ret;
   int responselen = 200;
@@ -309,14 +253,13 @@ int main(int argc, char* argv[])
   
   signal(SIGINT, sigINThandler);
   
-  if (parseCommandLine(argc, argv) < 0)
+  if (parseCommandLine(argc, argv, commandLine) < 0)
     return -1;
   initLogger(logfile);
   initSSL(&ctx);
 
   tv.tv_sec = 60;
   tv.tv_usec = 0;
-  FD_ZERO(&https);
   FD_ZERO(&master);
   FD_ZERO(&read_fds);
   FD_ZERO(&write_fds);
@@ -324,71 +267,76 @@ int main(int argc, char* argv[])
   logString("Server Initiated");
   
   /* all networked programs must create a socket */
-  if (setupListenerSocket(&listener, HTTPport) < 0)
-    return EXIT_FAILURE;
-  if (setupListenerSocket(&Slistener, HTTPSport) < 0)
+  if (setupBrowserListenerSocket(&browserListener, HTTPport) < 0)
     return EXIT_FAILURE;
   
   /*Add listerner to master set of fd's*/
-  FD_SET(listener, &master);
-  FD_SET(Slistener, &master);
-  fdmax = (Slistener > listener) ? Slistener : listener;
+  FD_SET(browserListener, &master);
+  fdmax = browserListener;
+  
   tv.tv_sec = 60;
   int fdcont = 0;
   /* finally, loop waiting for input and then write it back */
   while (1)
     {
       // int fdcont=0;
-      fd = waitForAction(master,&read_fds,&write_fds, fdmax, tv, fdcont);/*blocking*/ 
-      if (fd <0) continue;
-      if (fd == 0){
-	fdcont = 0;
+      sock = waitForAction(master,&read_fds,&write_fds, fdmax, tv, sockcont);/*blocking*/ 
+      if (sock <0) continue;
+      if (sock == 0){
+	sockcont = 0;
 	continue;
       }
-      fdcont = fd;
-      if (fd == listener){ //new connection
-	if (acceptNewConnection(listener, &master, &fdmax) < 0)
+      sockcont = sock;
+      
+      //Browser is requesting new connection
+      if (sock == browserListener){ //new connection
+	if (acceptNewConnection(browserListener, &master, &fdmax) < 0)
 	  return EXIT_FAILURE;
+	//if no current streams 
+	if (stream == NULL){
+	  //createNewStream
+	  //addConnectionToStream
+	}
+	else{
+	  //addConnectionToStrem
+	}
       }
-      else if (fd == Slistener){
-	if (acceptNewSecureConnection(Slistener,&master,&fdmax,ctx,&https,&ssl_set,&sslsize) < 0)
-	  return EXIT_FAILURE;
-      }
+
       else {
-      	responselen=200;
-	response = Malloc(responselen, "response");
-	memset(buf,0,BUF_SIZE);
-	if (FD_ISSET(fd, &https)){
-	  ssl = ssl_set[fd];
-	  if ((ret = secureReceive(ssl,&master,&fdmax,write_fds,Slistener,&buf)) < 0){
-	    FREE(response,"response");
-	    continue;
+	//Determine if coming from browser or server
+	connection_s *connection =  getConnectionFromSocket(stream_s stream, sock);
+	if (connection == NULL){
+	  
+	}
+
+	if (sock == connection->browser_sock){
+	  //Recieved request from browser
+	  //Determine if request is for nondata(html,swf,f4m(manifest)) or seg
+	  if (1)/*non-data*/{
+	    //fill in stream_s
+	  }
+	  else{//data
+	    //requestedChunk(connection, chunkname);//will start throughput
+	    
+	    //modify request for given bitrate
+	    //send request
 	  }
 	}
-	else if ((ret = receive(fd,&master,&fdmax,write_fds,listener, &buf)) < 0){
-	  FREE(response,"response");
-	  continue;
+
+	if (sock == connection->server_sock){
+	  //Recieved reply from server
+	  //if non-data
+	     //fill in stream
+	  //if data
+	    //find chunk in connection
+	    //edit throughput
+	    //forward
 	}
-	if ((ret = generateResponse(buf, &response, &responselen)) < 0){
-	  FREE(response,"response");
-	  continue;
-	}
-	//before call responselen is size of Malloc, after is size of message
 	
-	
-	if (FD_ISSET(fd,&https)){
-	  ssl = ssl_set[fd];
-	  sendSecureResponse(ssl,response,responselen);
-	}
-	else sendResponse(fd,response, responselen);
-	FREE(response,"response");
-     
+
       }//End else
     }//End while(1)
-  FREE(ssl_set,"sslset");
-  SSL_CTX_free(ctx);
-  close_socket(listener);
-  close_socket(Slistener);
+  close_socket(browserListener);
   //endLogger();
   return EXIT_SUCCESS;
 }
