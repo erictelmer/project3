@@ -52,7 +52,8 @@ typedef struct upL
 
 
 int parseXML(const char *file, orderedList *list);
-
+int getBitrate(int tput, orderedList *list);
+				
 
 //
 // getTimeoutPacket: gets the seqNum of a packet that has timed out

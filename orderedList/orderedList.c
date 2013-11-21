@@ -16,7 +16,7 @@
 #include "orderedList.h"
 
 
-/* Function to parse XML for bitrates */
+/* Function to parse XML for available bitrates */
 // takes in an XML file and an empty orderedList
 int parseXML(const char *file, orderedList *list){
 	FILE *fp;
@@ -42,12 +42,32 @@ int parseXML(const char *file, orderedList *list){
 					num = num + 1;					 //num = ###"
 					num = strtok(num, "\""); //num = ###
 					addNum(list, atoi(num));			 //add bitrate to bitrateList
-					printf("Found bitrate: %s\n", num);
 				}
 			}
 
 		return 1;
 }
+
+// Function to find the best bitrate based on throughput
+// Takes in the bitrateList and calculated throughput
+int getBitrate(int tput, orderedList *list){
+
+	orderedList *blist = list;
+	//calculate highest bitrate connection can support
+	int maxBR = tput/1.5;
+	int br = 0;
+
+	while(blist->start != NULL && blist->start->num <= maxBR){	
+			if(blist->start->num > br){
+				br = blist->start->num;
+				blist->start = blist->start->next;
+			}
+	}
+
+	return br;
+
+}
+
 
 int getTimeoutPacket(uploadList *list, double secs){
 
