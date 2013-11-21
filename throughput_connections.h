@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 #include <time.h>
 
+#include "orderedList.h"
+
 #define FILENAMESIZE 36
 
 typedef struct ch_through{
@@ -17,18 +19,18 @@ typedef struct ch_through{
   time_t time_finished;
   unsigned int chunk_size;
   char chunk_name[FILENAMESIZE];
-  ch_through *next;
+  struct ch_through *next;
 }chunk_list_s;
 
 typedef struct connecs{
   int browser_sock;
   int server_sock;
-  chunk_list_s *chunk_througputs;
-  connecs *next;
+  chunk_list_s *chunk_throughputs;
+  struct connecs *next;
 }connection_list_s;
 
 typedef struct strm_s{
-  connections_s *connections;
+  connection_list_s *connections;
   struct sockaddr_in client_addr;
   struct sockaddr_in server_addr;
   char filename[FILENAMESIZE];
@@ -39,7 +41,8 @@ typedef struct strm_s{
 
 //new funcs
 
-stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_addr);
+stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_addr, float alpha);
+
 chunk_list_s * newChunkList(void);
 
 connection_list_s *newConnection(int browser_sock, int server_sock);

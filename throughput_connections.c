@@ -9,7 +9,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define CHK_NULL(x) if (x == NULL) {printf("Passed func NULL\n") return NULL};
+#include "throughput_connections.h"
+
+#define CHK_NULL(x) if (x == NULL) {printf("Passed func NULL\n"); return;}
+#define CHK_NULLR(x) if (x == NULL) {printf("Passed func NULL\n"); return NULL;}
 
 stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_addr, float alpha){
   
@@ -26,17 +29,17 @@ stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_
   return new;
 }
 
-chunk_list *newChunkList(){
-  chunk_list *new = malloc(sizeof(struct ch_through));
+chunk_list_s *newChunkList(){
+  chunk_list_s *new = malloc(sizeof(struct ch_through));
 
-  new->ch_through = NULL;
+  new->next = NULL;
   
   return new;
 }
 
 
-connection_s *newConnection(int browser_sock, int server_sock){
-  connection_s *new = malloc(sizeo f(struct connecs));
+connection_list_s *newConnection(int browser_sock, int server_sock){
+  connection_list_s *new = malloc(sizeof(struct connecs));
   
   new->browser_sock = browser_sock;
   new->server_sock = server_sock;
@@ -62,8 +65,8 @@ chunk_list_s *freeChunkList(chunk_list_s *chunkList){
 
 connection_list_s *freeConnectionList(connection_list_s *connectionList){
 
-  connection_list * curr = connectionList;
-  connection_list * next;
+  connection_list_s * curr = connectionList;
+  connection_list_s * next;
   
   
   while(curr != NULL){
@@ -78,7 +81,7 @@ connection_list_s *freeConnectionList(connection_list_s *connectionList){
 }
 
 stream_s *freeStream(stream_s *stream){
-  CHK_NULL(stream);
+  CHK_NULLR(stream);
 
   freeConnectionList(stream->connections);
   freeOrderedList(stream->available_bitrates);
@@ -195,7 +198,7 @@ void removeConnectionFromStream(connection_list_s *connectionList, stream_s *str
 
 
 connection_list_s *getConnectionFromSocket(stream_s *stream, int sock){
-  CHK_NULL(stream); CHK_NULL(stream->connections);
+  CHK_NULLR(stream); CHK_NULLR(stream->connections);
 
   connection_list_s *curr = stream->connections;
 

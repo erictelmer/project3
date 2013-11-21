@@ -22,7 +22,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "openssl/ssl.h"
+#include "throughput_connections.h"
+#include "command_line.h"
 
 /*#include <openssl/rsa.h>
 #include <openssl/crypto.h>
@@ -33,8 +34,8 @@
 */
 
 
-//#include "log.h"
-#include "generateResponse.h"
+#include "log/log.h"
+//#include "generateResponse.h"
 
 #define RAND_PORT 8088
 #define SERV_PORT 8080
@@ -47,15 +48,6 @@
 #define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
 
 
-struct typedef{
-  char log[CMDLNSTRLEN];
-  float alpha;
-  unsigned short listen_port;
-  char fake_ip[CMDLNSTRLEN];
-  char dns_ip[CMDLNSTRLEN];
-  unsigned short dns_port;
-  char www_ip[CMDLNSTRLEN];
-}command_line_s;
 
 
 void sigINThandler(int);
@@ -68,7 +60,7 @@ void * Malloc(size_t size, char * name){
   void * loc;
   loc = malloc(size);
   if (loc == NULL){
-    logString("MALLOC ERROR");
+    //   logString("MALLOC ERROR");
     exit(3);
   }
   // printf("Mallocing %s of size: %x @ %p\n", name, (unsigned int)size, loc);
@@ -79,7 +71,7 @@ void * Realloc(void * pointer, size_t size, char * name){
   void * loc;
   loc =  realloc(pointer,size);
   if (loc == NULL){
-    logString("MALLOC ERROR");
+    //   logString("MALLOC ERROR");
     exit(3);
   }
   //  printf("Reallocing %s @ %p of size: %x @ %p\n", name,pointer, (unsigned int)size, loc);
@@ -90,7 +82,7 @@ int close_socket(int sock)
 {
     if (close(sock))
     {
-        logString("Failed closing socket../");
+      //        logString("Failed closing socket../");
         return 1;
     }
     return 0;
@@ -125,10 +117,10 @@ int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv
   return 0;
 }
 
-int acceptNewBrowserConnection(int browserListener, fd_set * master, int * fdmax, stream_s *stream, command_line_s *commandLine){
+int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, int * fdmax, stream_s *stream, command_line_s *commandLine){
   socklen_t addr_size;
 
-  struct sockaddr_int browser_addr;
+  struct sockaddr_in browser_addr;
   connection_list_s *connection = NULL;
 
   int browser_sock;
@@ -147,20 +139,20 @@ int acceptNewBrowserConnection(int browserListener, fd_set * master, int * fdmax
     client_addr.sin_port = htons(RAND_PORT);
     server_addr.sin_port = htons(SERV_PORT);
 
-    stream = newStream(&client_addr, &server_addr);
+    stream = newStream(&client_addr, &server_addr, commandLine->alpha);
   }
 
   //create new socket to server//CHECK FOR ERRORS
   server_sock = socket(AF_UNSPEC, SOCK_STREAM, SOCK_STREAM);
-  bind(server_sock, (struct sockaddr*)&stream->browser_addr, addr_size);
+  bind(server_sock, (struct sockaddr*)&stream->client_addr, addr_size);
   connect(server_sock, (struct sockaddr*)&stream->server_addr, addr_size);
 
   //accept new socket to browser
-  if ((browser_sock = accept(listener, (struct sockaddr *) &browser_addr,
+  if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
 			    &addr_size)) == -1)
     {
       close(browserListener);
-      logString("Error accepting connection.");
+      //      logString("Error accepting connection.");
       return EXIT_FAILURE;
     }
   
@@ -181,7 +173,7 @@ int acceptNewBrowserConnection(int browserListener, fd_set * master, int * fdmax
   }
 
   inet_ntop(AF_INET, (void *)(&(browser_addr.sin_addr)), str, 50);
-  logString("Accepted connection from %s", str);
+  //  logString("Accepted connection from %s", str);
   return 0;
 }
 
@@ -197,19 +189,19 @@ int receive(int fd, fd_set * master, int *fdmax, fd_set write_fds, int listener,
     {
       if (!FD_ISSET(fd, &write_fds)) {
 	memset(*buf,0, BUF_SIZE);
-	logString("Could not write");
+	//	logString("Could not write");
 	return -2;
       }
       //Http handling//
       if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0){
-	logString("Read data from fd:%d", fd);
+	//	logString("Read data from fd:%d", fd);
 	return 0;
       }
       //End gttp handling//
       memset(*buf,0,BUF_SIZE);
     } 
   if (readret == 0){//If connection closed
-    logString("Connection closed on fd:%d",fd);
+    //    logString("Connection closed on fd:%d",fd);
     close_socket(fd);
     FD_CLR(fd, master);
   }
@@ -218,7 +210,7 @@ int receive(int fd, fd_set * master, int *fdmax, fd_set write_fds, int listener,
       for(j = listener + 1; j<=*fdmax; j++){
 	close_socket(j);
       }
-      logString("Error reading data from client");
+      //     logString("Error reading data from client");
       FD_ZERO(master);
       FD_SET(listener, master);
       *fdmax = listener;
@@ -232,10 +224,10 @@ int sendResponse(int fd, char * response, int responselen){
     {
       close_socket(fd);
       close_socket(3);
-      logString("Error sending to client.");
+      //     logString("Error sending to client.");
       return EXIT_FAILURE;
     }
-  logString("Sent response to fd:%d", fd);
+  //  logString("Sent response to fd:%d", fd);
   return 0;
 }
 
@@ -245,7 +237,7 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   
   if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1)
     {
-      logString("Failed creating socket.");
+      //      logString("Failed creating socket.");
       return -1;
     }
   addr.sin_family = AF_INET;
@@ -256,14 +248,14 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   if (bind(listener, (struct sockaddr *) &addr, sizeof(addr)))
     {
       close_socket(listener);
-      logString("Failed binding socket.");
+      //     logString("Failed binding socket.");
       return -1;
     }
   
   if (listen(listener, 5))
     {
       close_socket(listener);
-      logString("Error listening on socket.");
+      //     logString("Error listening on socket.");
       return -1;
     }
   *plistener = listener;
@@ -277,6 +269,7 @@ int main(int argc, char* argv[])
   
   command_line_s commandLine;
   stream_s *stream = NULL;
+  connection_list_s *connection;
 
   int browserListener;
  
@@ -296,7 +289,7 @@ int main(int argc, char* argv[])
   
   signal(SIGINT, sigINThandler);
   
-  if (parseCommandLine(argc, argv, commandLine) < 0)
+  if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
 
   //  initLogger(commandLine->logfile);
@@ -309,7 +302,7 @@ int main(int argc, char* argv[])
   //  logString("Server Initiated");
   
   /* set up socket to listen for incoming connections from the browser*/
-  if (setupBrowserListenerSocket(&browserListener, commandLine->listen_port) < 0)
+  if (setupBrowserListenerSocket(&browserListener, commandLine.listen_port) < 0)
     return EXIT_FAILURE;
   
   /*Add browser listerner to master set of fd's*/
@@ -334,11 +327,11 @@ int main(int argc, char* argv[])
 	if (stream == NULL){
 	 
 	}
-	if (acceptNewBrowserConnection(browserListener, &master, &fdmax, stream) < 0)//add connection to stream
+	if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, stream, &commandLine) < 0)//add connection to stream
 	  //add browser sock to read_fs
 	  return EXIT_FAILURE;
 	//if no current streams 
-	}
+	
       }
 
       else {
