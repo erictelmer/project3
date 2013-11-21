@@ -36,8 +36,10 @@
 //#include "log.h"
 #include "generateResponse.h"
 
-#define ECHO_PORT 8088
+#define RAND_PORT 8088
+#define SERV_PORT 8080
 #define BUF_SIZE 4096
+
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
@@ -98,14 +100,14 @@ int close_socket(int sock)
 
 
 
-int waitForAction(fd_set master, fd_set * read_fds, fd_set *write_fds, int fdmax, struct timeval tv, int fdcont){
+int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv, int fdcont){
 
   int i;
 
   *read_fds = master; // copy it
-  *write_fds = master;
+
   tv.tv_sec = 60;
-  i = select(fdmax+1, read_fds, write_fds, NULL, &tv);
+  i = select(fdmax+1, read_fds, NULL, NULL, &tv);
   if (i == -1) {
     perror("select");
     exit(4);
@@ -123,24 +125,62 @@ int waitForAction(fd_set master, fd_set * read_fds, fd_set *write_fds, int fdmax
   return 0;
 }
 
-int acceptNewConnection(int listener, fd_set * master, int * fdmax){
-  socklen_t cli_size;
-  struct sockaddr_in cli_addr;
-  int client_sock;
+int acceptNewBrowserConnection(int browserListener, fd_set * master, int * fdmax, stream_s *stream, command_line_s *commandLine){
+  socklen_t addr_size;
+
+  struct sockaddr_int browser_addr;
+  connection_list_s *connection = NULL;
+
+  int browser_sock;
+  int server_sock;
   char str[50];
-  cli_size = sizeof(cli_addr);
-  if ((client_sock = accept(listener, (struct sockaddr *) &cli_addr,
-			    &cli_size)) == -1)
+  addr_size = sizeof(browser_addr);
+
+  if(stream == NULL){//new stream!
+    struct sockaddr_in client_addr;
+    struct sockaddr_in server_addr;
+
+    memcpy(&client_addr.sin_addr, &commandLine->fake_ip, sizeof(struct in_addr));
+    memcpy(&server_addr.sin_addr, &commandLine->www_ip, sizeof(struct in_addr));
+    client_addr.sin_family = AF_INET;
+    server_addr.sin_family = AF_INET;
+    client_addr.sin_port = htons(RAND_PORT);
+    server_addr.sin_port = htons(SERV_PORT);
+
+    stream = newStream(&client_addr, &server_addr);
+  }
+
+  //create new socket to server//CHECK FOR ERRORS
+  server_sock = socket(AF_UNSPEC, SOCK_STREAM, SOCK_STREAM);
+  bind(server_sock, (struct sockaddr*)&stream->browser_addr, addr_size);
+  connect(server_sock, (struct sockaddr*)&stream->server_addr, addr_size);
+
+  //accept new socket to browser
+  if ((browser_sock = accept(listener, (struct sockaddr *) &browser_addr,
+			    &addr_size)) == -1)
     {
-      close(listener);
+      close(browserListener);
       logString("Error accepting connection.");
       return EXIT_FAILURE;
     }
-  FD_SET(client_sock, master); // add new socket to master set
-  if (client_sock > *fdmax) {    // keep track of the max
-    *fdmax = client_sock;
+  
+  //create new connection adn add it to stream
+  connection = newConnection(browser_sock, server_sock);
+  addConnectionToStream(connection, stream);
+
+  //Add socket to browser to fdset
+  FD_SET(browser_sock, master); // add new socket to master set
+  if (browser_sock > *fdmax) {    // keep track of the max
+    *fdmax = browser_sock;
   }
-  inet_ntop(AF_INET, (void *)(&(cli_addr.sin_addr)), str, 50);
+
+  //Add socket to server to master
+  FD_SET(server_sock, master); // add new socket to master set
+  if (server_sock > *fdmax) {    // keep track of the max
+    *fdmax = server_sock;
+  }
+
+  inet_ntop(AF_INET, (void *)(&(browser_addr.sin_addr)), str, 50);
   logString("Accepted connection from %s", str);
   return 0;
 }
@@ -199,8 +239,8 @@ int sendResponse(int fd, char * response, int responselen){
   return 0;
 }
 
-int setupListenerSocket(int * plistener, int port){
-  int listener = *plistener;
+int setupBrowserListenerSocket(int * plistener, unsigned short port){
+  int listener;
   struct sockaddr_in addr;
   
   if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1)
@@ -236,12 +276,13 @@ int main(int argc, char* argv[])
 {
   
   command_line_s commandLine;
+  stream_s *stream = NULL;
 
   int browserListener;
  
   fd_set master;
   fd_set read_fds;
-  fd_set write_fds;
+
   int fdmax;
   int sock;
   struct timeval tv;
@@ -250,61 +291,59 @@ int main(int argc, char* argv[])
   int ret;
   int responselen = 200;
   char * response;
+
+  int sockcont=0;
   
   signal(SIGINT, sigINThandler);
   
   if (parseCommandLine(argc, argv, commandLine) < 0)
     return -1;
-  initLogger(logfile);
-  initSSL(&ctx);
+
+  //  initLogger(commandLine->logfile);
 
   tv.tv_sec = 60;
   tv.tv_usec = 0;
   FD_ZERO(&master);
   FD_ZERO(&read_fds);
-  FD_ZERO(&write_fds);
-  fprintf(stdout, "----- Echo Server -----\n");
-  logString("Server Initiated");
+
+  //  logString("Server Initiated");
   
-  /* all networked programs must create a socket */
-  if (setupBrowserListenerSocket(&browserListener, HTTPport) < 0)
+  /* set up socket to listen for incoming connections from the browser*/
+  if (setupBrowserListenerSocket(&browserListener, commandLine->listen_port) < 0)
     return EXIT_FAILURE;
   
-  /*Add listerner to master set of fd's*/
+  /*Add browser listerner to master set of fd's*/
   FD_SET(browserListener, &master);
   fdmax = browserListener;
   
   tv.tv_sec = 60;
-  int fdcont = 0;
-  /* finally, loop waiting for input and then write it back */
   while (1)
     {
-      // int fdcont=0;
-      sock = waitForAction(master,&read_fds,&write_fds, fdmax, tv, sockcont);/*blocking*/ 
-      if (sock <0) continue;
-      if (sock == 0){
+      //wait for a socket to have data to read
+      sock = waitForAction(master,&read_fds, fdmax, tv, sockcont);/*blocking*/ 
+      if (sock <0) continue;//select timeout
+      if (sock == 0){//read through read_fs , start from beginning
 	sockcont = 0;
 	continue;
       }
       sockcont = sock;
       
+      
       //Browser is requesting new connection
-      if (sock == browserListener){ //new connection
-	if (acceptNewConnection(browserListener, &master, &fdmax) < 0)
+      if (sock == browserListener){ //new connection	
+	if (stream == NULL){
+	 
+	}
+	if (acceptNewBrowserConnection(browserListener, &master, &fdmax, stream) < 0)//add connection to stream
+	  //add browser sock to read_fs
 	  return EXIT_FAILURE;
 	//if no current streams 
-	if (stream == NULL){
-	  //createNewStream
-	  //addConnectionToStream
-	}
-	else{
-	  //addConnectionToStrem
 	}
       }
 
       else {
 	//Determine if coming from browser or server
-	connection_s *connection =  getConnectionFromSocket(stream_s stream, sock);
+	connection =  getConnectionFromSocket(stream, sock);
 	if (connection == NULL){
 	  
 	}
@@ -313,7 +352,8 @@ int main(int argc, char* argv[])
 	  //Recieved request from browser
 	  //Determine if request is for nondata(html,swf,f4m(manifest)) or seg
 	  if (1)/*non-data*/{
-	    //fill in stream_s
+	    //if beggining of stream fill in stream_s
+	    //IF NEW CHUNK FILL IN CONNECTION
 	  }
 	  else{//data
 	    //requestedChunk(connection, chunkname);//will start throughput
