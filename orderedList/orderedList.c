@@ -16,6 +16,39 @@
 #include "orderedList.h"
 
 
+/* Function to parse XML for bitrates */
+// takes in an XML file and an empty orderedList
+int parseXML(const char *file, orderedList *list){
+	FILE *fp;
+
+		if (file == NULL)
+		{
+				printf("XML File is NULL\n");
+				return -1;
+		}
+		if (list == NULL)
+		{
+				printf("Bitrate List is null");
+				return -1;
+		}
+
+		fp = fopen(file, "r");
+		char line[1024];
+		char *num;
+		while (fgets(line, sizeof(line), fp)){
+			if (strstr(line, "bitrate=")) //found bitrate in a line
+				{
+					num = strchr(line, '"'); //num = "###"
+					num = num + 1;					 //num = ###"
+					num = strtok(num, "\""); //num = ###
+					addNum(list, atoi(num));			 //add bitrate to bitrateList
+					printf("Found bitrate: %s\n", num);
+				}
+			}
+
+		return 1;
+}
+
 int getTimeoutPacket(uploadList *list, double secs){
 
   orderedNode *node;

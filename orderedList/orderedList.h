@@ -49,6 +49,11 @@ typedef struct upL
   int dup;
 }uploadList;
 
+
+
+int parseXML(const char *file, orderedList *list);
+
+
 //
 // getTimeoutPacket: gets the seqNum of a packet that has timed out
 // Parameters:

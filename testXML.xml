@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns="http://ns.adobe.com/f4m/1.0">
+		<id>
+					10
+		</id>
+		<streamType>
+					recorded
+		</streamType>
+		<duration>
+					596.50133333333338
+		</duration>
+		<bootstrapInfo
+					profile="named"
+					id="bootstrap5948"
+		>
+		</bootstrapInfo>
+		<media
+					streamID="10"
+					url="10"
+					bitrate="10"
+					bootstrapInfoId="bootstrap5948"
+		>
+		<metadata>
+					Blahblahblah
+		</metadata>
+		</media>
+		<media
+          streamID="100"
+          url="100"
+          bitrate="100"
+          bootstrapInfoId="bootstrap5948"
+    >
+	  <metadata>
+		      Blahblahblah
+		</metadata>
+		</media>
+</manifest>
+
