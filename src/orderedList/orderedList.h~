@@ -1,0 +1,66 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#define LOST -1
+#define OK 1
+
+typedef struct oNode
+{
+  int num;
+  time_t timeSent; //Upload use only
+  struct oNode *next;
+}orderedNode;
+
+typedef struct oList
+{
+  int size;
+  orderedNode *start;
+}orderedList;
+
+typedef struct downL
+{
+  int maxRecv;
+  orderedList *missing;
+}downloadList;
+
+typedef struct upL
+{
+  orderedList *sent;
+  int dup;
+}uploadList;
+
+//returns the seq Num of a packet that has timed out
+//or -1 if there are none
+int getTimeoutPacket(uploadList *list, double secs);
+
+//returns sLOST if we got 3 duplicate acks
+//or OK otherwise
+//if LOST send seqNum = ack + 1
+int recievedACK(uploadList * list, int ack);
+
+void sentDATA(uploadList *list, int seq);
+
+//returns ack to send
+int recievedDATA(downloadList *list, int seq); 
+
+int isOListEmpty(orderedList *list);
+
+downloadList * newDownloadList();
+
+uploadList * newUploadList();
+
+orderedList *newOrderedList();
+
+orderedNode *newOrderedNode(int num);
+
+void freeOrderedNode(orderedNode *node);
+
+void removeNum(orderedList *list, int num);
+
+void addNum(orderedList *list, int num);
