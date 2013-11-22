@@ -1,6 +1,6 @@
 
 /******************************************************************************
-* prsoxy.c                                                               *
+* proxy.c                                                               *
 *                                                                             *
 * Description: This file contains the C source code for a video streaming proxy                                          *
 *                                                                             *
@@ -95,6 +95,13 @@ int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv
 
   *read_fds = master; // copy it
 
+  for(i=0; i<=fdmax; i++){
+    if(FD_ISSET(i, read_fds)){
+      printf("FDISSET %d\n", i);
+    }
+  }
+
+
   tv.tv_sec = 60;
   i = select(fdmax+1, read_fds, NULL, NULL, &tv);
   if (i == -1) {
@@ -114,7 +121,7 @@ int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv
   return 0;
 }
 
-int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, int * fdmax, stream_s *stream, command_line_s *commandLine){
+int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, int * fdmax, stream_s **stream, command_line_s *commandLine){
   socklen_t addr_size;
 
   struct sockaddr_in browser_addr;
@@ -125,7 +132,9 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   char str[50];
   addr_size = sizeof(browser_addr);
 
-  if(stream == NULL){//new stream!
+  printf("Attempting to accept connection\n");
+
+  if(*stream == NULL){//new stream!
     struct sockaddr_in client_addr;
     struct sockaddr_in server_addr;
 
@@ -136,13 +145,13 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
     client_addr.sin_port = htons(RAND_PORT);
     server_addr.sin_port = htons(SERV_PORT);
 
-    stream = newStream(&client_addr, &server_addr, commandLine->alpha);
+    *stream = newStream(&client_addr, &server_addr, commandLine->alpha);
   }
 
   //create new socket to server//CHECK FOR ERRORS
   server_sock = socket(AF_UNSPEC, SOCK_STREAM, SOCK_STREAM);
-  bind(server_sock, (struct sockaddr*)&stream->client_addr, addr_size);
-  connect(server_sock, (struct sockaddr*)&stream->server_addr, addr_size);
+  bind(server_sock, (struct sockaddr*)&(*stream)->client_addr, addr_size);
+  connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size);
 
   //accept new socket to browser
   if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
@@ -155,7 +164,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   
   //create new connection adn add it to stream
   connection = newConnection(browser_sock, server_sock);
-  addConnectionToStream(connection, stream);
+  addConnectionToStream(connection, *stream);
 
   //Add socket to browser to fdset
   FD_SET(browser_sock, master); // add new socket to master set
@@ -240,7 +249,9 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = INADDR_ANY;
-  
+ 
+  printf("Binding to port:%d\n", port);
+ 
   /* servers bind sockets to ports---notify the OS they accept connections */
   if (bind(listener, (struct sockaddr *) &addr, sizeof(addr)))
     {
@@ -305,12 +316,15 @@ int main(int argc, char* argv[])
   /*Add browser listerner to master set of fd's*/
   FD_SET(browserListener, &master);
   fdmax = browserListener;
+
+  printf("Browser listener: %d\n", browserListener);
   
   tv.tv_sec = 60;
   while (1)
     {
       //wait for a socket to have data to read
-      sock = waitForAction(master,&read_fds, fdmax, tv, sockcont);/*blocking*/ 
+      sock = waitForAction(master,&read_fds, fdmax, tv, sockcont);/*blocking*/
+      printf("Wait for action returned, sok = %d\n", sock);
       if (sock <0) continue;//select timeout
       if (sock == 0){//read through read_fs , start from beginning
 	sockcont = 0;
@@ -324,7 +338,7 @@ int main(int argc, char* argv[])
 	if (stream == NULL){
 	 
 	}
-	if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, stream, &commandLine) < 0)//add connection to stream
+	if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, &stream, &commandLine) < 0)//add connection to stream
 	  //add browser sock to read_fs
 	  return EXIT_FAILURE;
 	//if no current streams 
@@ -335,7 +349,8 @@ int main(int argc, char* argv[])
 	//Determine if coming from browser or server
 	connection =  getConnectionFromSocket(stream, sock);
 	if (connection == NULL){
-	  
+	  printf("NULL connec\n");
+	  return EXIT_FAILURE;
 	}
 
 	if (sock == connection->browser_sock){

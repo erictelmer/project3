@@ -11,8 +11,8 @@
 
 #include "throughput_connections.h"
 
-#define CHK_NULL(x) if (x == NULL) {printf("Passed func NULL\n"); return;}
-#define CHK_NULLR(x) if (x == NULL) {printf("Passed func NULL\n"); return NULL;}
+#define CHK_NULL(x,s) if (x == NULL) {printf("Passed func %s NULL\n", s); return;}
+#define CHK_NULLR(x,s) if (x == NULL) {printf("Passed func %s NULL\n", s); return NULL;}
 
 stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_addr, float alpha){
   
@@ -81,7 +81,7 @@ connection_list_s *freeConnectionList(connection_list_s *connectionList){
 }
 
 stream_s *freeStream(stream_s *stream){
-  CHK_NULLR(stream);
+  CHK_NULLR(stream, "freeStream");
 
   freeConnectionList(stream->connections);
   freeOrderedList(stream->available_bitrates);
@@ -93,7 +93,7 @@ stream_s *freeStream(stream_s *stream){
 
 
 void addChunkToConnections(chunk_list_s *chunkList, connection_list_s *connectionList){
-  CHK_NULL(chunkList); CHK_NULL(connectionList);
+  CHK_NULL(chunkList, "addChunk:ch"); CHK_NULL(connectionList, "addChunk:cpnn");
   
   chunk_list_s *curr;
 
@@ -114,7 +114,7 @@ void addChunkToConnections(chunk_list_s *chunkList, connection_list_s *connectio
 }
 
 void addConnectionToStream(connection_list_s *connectionList, stream_s *stream){
-  CHK_NULL(connectionList); CHK_NULL(stream);
+  CHK_NULL(connectionList, "addConnec:conn"); CHK_NULL(stream, "addConnec:s");
 
   connection_list_s *curr;
 
@@ -135,7 +135,7 @@ void addConnectionToStream(connection_list_s *connectionList, stream_s *stream){
 }
 
 void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *connectionList){
-  CHK_NULL(chunkList); CHK_NULL(connectionList);
+  CHK_NULL(chunkList, "rmChnk:ch"); CHK_NULL(connectionList,"rmChnk:con");
   
   chunk_list_s *curr;
 
@@ -166,7 +166,7 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
 }
 
 void removeConnectionFromStream(connection_list_s *connectionList, stream_s *stream){
-  CHK_NULL(stream); CHK_NULL(connectionList);
+  CHK_NULL(stream,"rmConnec:s"); CHK_NULL(connectionList,"rmConnec:c");
   
   connection_list_s *curr;
 
@@ -198,7 +198,7 @@ void removeConnectionFromStream(connection_list_s *connectionList, stream_s *str
 
 
 connection_list_s *getConnectionFromSocket(stream_s *stream, int sock){
-  CHK_NULLR(stream); CHK_NULLR(stream->connections);
+  CHK_NULLR(stream,"getConnecfrmS:s"); CHK_NULLR(stream->connections,"getConnecFrmS:c");
 
   connection_list_s *curr = stream->connections;
 

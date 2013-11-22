@@ -52,7 +52,7 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   if (sscanf(argv[3],"%d",&inputInt) < 1){
     return printHelp();
   }
-  commandLine->listen_port = htons(inputInt);
+  commandLine->listen_port = inputInt;
 
 
   //fake-ip
@@ -80,7 +80,7 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
     commandLine->dns_port = htons(inputInt);
     return printHelp();
   }   
-  commandLine->dns_port = htons(inputInt);
+  commandLine->dns_port = inputInt;
 
 
   
