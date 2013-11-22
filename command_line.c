@@ -15,8 +15,15 @@
 
 
 int printHelp(){
-  printf("usage: ./lisod <HTTP port> <HTTPS port> <log file> <lock file> <www folder> <CGI folder or script name> <private key file> <certificate file>\nHTTP port\n  – the port for the HTTP (or echo) server to listen on\nHTTPS port\n  – the port for the HTTPS server to listen on\nlog file\n  – file to send log messages to (debug, info, error)\nlock file\n  – file to lock on when becoming a daemon process\nwww folder\n  – folder containing a tree to serve as the root of a website\nCGI folder or script name\n  – folder containing CGI programs—each file should be executable;\n  if a file it should be a script where you redirect all /cgi/* URIs to\nprivate key file\n  – private key file path\ncertificate file\n  – certificate file path\n");
-  return -1;
+  printf("\nusage: ./proxy <log> <alpha> <listen-port> <fake-ip> <dns-ip> <dns-port> <www-ip>\n\n\
+log: The file path to which you should log the messages to.\n\n\
+alpha: A float in the range [0, 1]. Uses this as the coefficient in your EWMA throughput estimate.\n\n\
+listen-port: The TCP port your proxy should listen on for accepting connections from your browser.\n\n\
+fake-ip: Your proxy should bind to this IP address for outbound connections to the webservers.\n\n\
+dns-ip: IP address of the DNS server.\n\n\
+dns-port: UDP port DNS server listens on.\n\n\
+www-ip: [optional] Your proxy should accept an optional argument specifying the IP address of the web server from which it should request video chunks.\n");
+    return -1;
 }
 
 
@@ -26,7 +33,7 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   char input[36];
   int inputInt;
 
-  if (argc != 8)
+  if (argc < 7 || argc > 8)
     return printHelp();
   
   //Log file
@@ -37,6 +44,8 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
 
   //alpha
   if (sscanf(argv[2],"%f", &commandLine->alpha) < 1)
+    return printHelp();
+  if (commandLine->alpha < 0 || commandLine->alpha > 1)
     return printHelp();
 
   //listen-port
@@ -52,7 +61,8 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   else if (sscanf(argv[4],"%s",input) < 1){
     return printHelp();
   }
-  inet_pton(AF_INET, input, &commandLine->fake_ip);
+  if(inet_pton(AF_INET, input, &commandLine->fake_ip) == 0)
+    return printHelp();
   // memset(input, 0, sizeof(input));
 
   //dns-ip
@@ -61,8 +71,8 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   else if (sscanf(argv[5],"%s",input) < 1){
     return printHelp();
   }  
-  printf("FASKEIP: %s\n" ,input);
-  inet_pton(AF_INET, input, &commandLine->dns_ip);
+  if (inet_pton(AF_INET, input, &commandLine->dns_ip) == 0)
+    return printHelp();
 
 
   //dns_port
@@ -71,14 +81,28 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
     return printHelp();
   }   
   commandLine->dns_port = htons(inputInt);
+
+
   
   //www-ip
-  if (strlen(argv[7]) >= sizeof(input))
-    printf("www-ip too large\n");
-  else if (sscanf(argv[7],"%s",input) < 1){
-    return printHelp();
+  if (argc == 8){
+    if (strlen(argv[7]) >= sizeof(input))
+      printf("www-ip too large\n");
+    else if (sscanf(argv[7],"%s",input) < 1){
+      return printHelp();
+    }
   }
-  inet_pton(AF_INET, input, &commandLine->www_ip);
+  /*else {
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    getaddrinfo("video.cs.cmu.edu", "port", &hints, &res);
+
+  }*/
+  if(inet_pton(AF_INET, input, &commandLine->www_ip) == 0)
+    return printHelp();
       
   return 0;
 }

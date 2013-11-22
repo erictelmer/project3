@@ -3,9 +3,9 @@ CC 		= gcc
 CFLAGS		= -g -Wall -DDEBUG
 LDFLAGS		= -lm
 
-OBJS		= starter.o throughput_connections.o command_line.o orderedList.o
+OBJS		= proxy.o throughput_connections.o command_line.o orderedList.o
 
-BINS            = starter
+BINS            = proxy
 
 # Implicit .o target
 .c.o:
@@ -17,7 +17,7 @@ all: ${BINS}
 
 
 
-starter: $(OBJS)
+proxy: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 
