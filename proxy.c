@@ -178,21 +178,21 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
 
 
 
-
-int receive(int fd, fd_set * master, int *fdmax, fd_set write_fds, int listener, char (* buf)[BUF_SIZE]){
+//returns bytes read
+int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE]){
   int readret;
   int j;
   if ((readret = recv(fd, *buf, 1, MSG_PEEK)) > 0)//Check if connection closed
     {
-      if (!FD_ISSET(fd, &write_fds)) {
+      /*if (!FD_ISSET(fd, &write_fds)) {
 	memset(*buf,0, BUF_SIZE);
 	//	logString("Could not write");
 	return -2;
-      }
+	}*/
       //Http handling//
       if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0){
 	//	logString("Read data from fd:%d", fd);
-	return 0;
+	return readret;
       }
       //End gttp handling//
       memset(*buf,0,BUF_SIZE);
@@ -339,6 +339,9 @@ int main(int argc, char* argv[])
 	}
 
 	if (sock == connection->browser_sock){
+	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
+	  if (ret > 0)
+	    sendResponse(sock, buf, ret);
 	  //Recieved request from browser
 	  //Determine if request is for nondata(html,swf,f4m(manifest))
 	  if (1)/*non-data*/{
@@ -354,6 +357,9 @@ int main(int argc, char* argv[])
 	}
 
 	if (sock == connection->server_sock){
+	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
+	  if (ret > 0)
+	    sendResponse(sock, buf, ret);
 	  //Recieved reply from server
 	  //if non-data
 	     //fill in stream
