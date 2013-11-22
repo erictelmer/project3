@@ -341,7 +341,7 @@ int main(int argc, char* argv[])
 	if (sock == connection->browser_sock){
 	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
 	  if (ret > 0)
-	    sendResponse(sock, buf, ret);
+	    sendResponse(connection->server_sock, buf, ret);
 	  //Recieved request from browser
 	  //Determine if request is for nondata(html,swf,f4m(manifest))
 	  if (1)/*non-data*/{
@@ -359,7 +359,7 @@ int main(int argc, char* argv[])
 	if (sock == connection->server_sock){
 	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
 	  if (ret > 0)
-	    sendResponse(sock, buf, ret);
+	    sendResponse(connection->server_sock, buf, ret);
 	  //Recieved reply from server
 	  //if non-data
 	     //fill in stream
