@@ -12,17 +12,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 
 #define CMNDLNSTRLEN 36
 
-struct typedef{
-  char log[CMDLNSTRLEN];
+typedef struct{
+  char logfile[CMNDLNSTRLEN];
   float alpha;
   unsigned short listen_port;
-  char fake_ip[CMDLNSTRLEN];
-  char dns_ip[CMDLNSTRLEN];
+  struct in_addr fake_ip;
+  struct in_addr dns_ip;
   unsigned short dns_port;
-  char www_ip[CMDLNSTRLEN];
+  struct in_addr www_ip;
 }command_line_s;
 
 int printHelp();
