@@ -145,13 +145,23 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
     client_addr.sin_port = htons(RAND_PORT);
     server_addr.sin_port = htons(SERV_PORT);
 
+    memset(client_addr.sin_zero, '\0', sizeof(client_addr.sin_zero));
+    memset(server_addr.sin_zero, '\0', sizeof(server_addr.sin_zero));
+
     *stream = newStream(&client_addr, &server_addr, commandLine->alpha);
   }
 
   //create new socket to server//CHECK FOR ERRORS
-  server_sock = socket(AF_UNSPEC, SOCK_STREAM, SOCK_STREAM);
-  bind(server_sock, (struct sockaddr*)&(*stream)->client_addr, addr_size);
-  connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size);
+  if ((server_sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) printf("socket failed\n");
+
+  if (bind(server_sock, (struct sockaddr*)&(*stream)->client_addr, addr_size) < 0) {
+    char tmp[80];
+    inet_ntop(AF_INET, &(*stream)->client_addr.sin_addr, tmp, 80);
+    printf("Bind addr:\n%s\nport:\n%d\n", tmp, ntohs((*stream)->client_addr.sin_port)); 
+    printf("Bind failed\n");
+  }
+  
+  if (connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size)) printf("Connect failed\n");
 
   //accept new socket to browser
   if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
@@ -230,6 +240,7 @@ int sendResponse(int fd, char * response, int responselen){
     {
       close_socket(fd);
       close_socket(3);
+      printf("Send Failed\n");
       //     logString("Error sending to client.");
       return EXIT_FAILURE;
     }
@@ -349,7 +360,7 @@ int main(int argc, char* argv[])
 	//Determine if coming from browser or server
 	printf("Determening if coming from browser or server\n");
 	connection =  getConnectionFromSocket(stream, sock);
-	printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->sever_sock);
+	printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->server_sock);
 	if (connection == NULL){
 	  printf("NULL connec\n");
 	  return EXIT_FAILURE;
@@ -359,6 +370,7 @@ int main(int argc, char* argv[])
 	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
 	  printf("Recieved %d\n", ret);
 	  if (ret > 0)
+	    printf("Recieved from browser:\n\n\n\n%s\n\n\n\n", buf);
 	    sendResponse(connection->server_sock, buf, ret);
 	  //Recieved request from browser
 	  //Determine if request is for nondata(html,swf,f4m(manifest))
@@ -377,7 +389,8 @@ int main(int argc, char* argv[])
 	if (sock == connection->server_sock){
 	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
 	  if (ret > 0)
-	    sendResponse(connection->server_sock, buf, ret);
+	    printf("Recieved from server:\n\n\n\n%s\n\n\n\n", buf);
+	    sendResponse(connection->browser_sock, buf, ret);
 	  //Recieved reply from server
 	  //if non-data
 	     //fill in stream
