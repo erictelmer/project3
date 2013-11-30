@@ -347,7 +347,9 @@ int main(int argc, char* argv[])
 
       else {
 	//Determine if coming from browser or server
+	printf("Determening if coming from browser or server\n");
 	connection =  getConnectionFromSocket(stream, sock);
+	printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->sever_sock);
 	if (connection == NULL){
 	  printf("NULL connec\n");
 	  return EXIT_FAILURE;
@@ -355,6 +357,7 @@ int main(int argc, char* argv[])
 
 	if (sock == connection->browser_sock){
 	  ret = receive(sock, &master, &fdmax, browserListener, &buf);
+	  printf("Recieved %d\n", ret);
 	  if (ret > 0)
 	    sendResponse(connection->server_sock, buf, ret);
 	  //Recieved request from browser
