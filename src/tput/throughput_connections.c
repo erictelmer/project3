@@ -63,6 +63,10 @@ chunk_list_s *freeChunkList(chunk_list_s *chunkList){
   return NULL;
 }
 
+void freeConnection(connection_list_s *connection){
+  free(connection);
+}
+
 connection_list_s *freeConnectionList(connection_list_s *connectionList){
 
   connection_list_s * curr = connectionList;
@@ -73,7 +77,7 @@ connection_list_s *freeConnectionList(connection_list_s *connectionList){
     next = curr->next;
     if(curr->chunk_throughputs != NULL)
       freeChunkList(curr->chunk_throughputs);
-    free(curr);
+    freeConnection(curr);
     curr = next;
   }
 
