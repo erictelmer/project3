@@ -80,7 +80,7 @@ void * Malloc(size_t size, char *name);
 void * Realloc(void *pointer, size_t size, char *name);
 
 //
-// waitForAction
+// waitForAction: 
 // Parameters:
 // 		fd_set master
 // 		fd_set *read_fds
