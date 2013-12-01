@@ -30,7 +30,7 @@
 */
 
 
-#include "log/log.h"
+#include "log.h"
 //#include "generateResponse.h"
 
 #define RAND_PORT 8090
