@@ -1,60 +1,35 @@
-
 /******************************************************************************
-* proxy.c                                                               *
+*																																							*
+* proxy.c                                                             			  *
 *                                                                             *
-* Description: This file contains the C source code for a video streaming proxy                                          *
+* Description: This file contains the C source code for a video 							*
+* 						 streaming proxy based on the handout for Project 3.						*
 *                                                                             *
-* Authors:Eric Telmer <eit@andrew.cmu.edu>                                    *
+* Authors: Eric Telmer <eit@andrew.cmu.edu>                                   *
+* 				 Lauren Milisits <lvm@andrew.cmu.edu>																*
 *                                                                             *
 *******************************************************************************/
 
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "proxy.h"
 
-#include "throughput_connections.h"
-#include "command_line.h"
+//Methods used for the proxy
+int close_socket(int sock){
+	if (close(sock)){
+		return 1;
+	}
+	return 0;
+}
 
-/*#include <openssl/rsa.h>
-#include <openssl/crypto.h>
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-*/
+void sigINThandler(int sig){
+	close_socket(3);
+}
 
-
-#include "log/log.h"
-//#include "generateResponse.h"
-
-#define RAND_PORT 8088
-#define SERV_PORT 8080
-#define BUF_SIZE 4096
-
-
-#define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
-#define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
-#define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
-#define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
-
-
-
-
-void sigINThandler(int);
-
-void leave(void){
+void leave(){
   //	endLogger();
 }
 
-void * Malloc(size_t size, char * name){
-  void * loc;
+void * Malloc(size_t size, char *name){
+  void *loc;
   loc = malloc(size);
   if (loc == NULL){
     //   logString("MALLOC ERROR");
@@ -64,9 +39,9 @@ void * Malloc(size_t size, char * name){
   return loc;
 }
 
-void * Realloc(void * pointer, size_t size, char * name){
-  void * loc;
-  loc =  realloc(pointer,size);
+void * Realloc(void *pointer, size_t size, char *name){
+  void *loc;
+  loc =  realloc(pointer, size);
   if (loc == NULL){
     //   logString("MALLOC ERROR");
     exit(3);
@@ -75,32 +50,19 @@ void * Realloc(void * pointer, size_t size, char * name){
   return loc;
 }
 
-int close_socket(int sock)
-{
-    if (close(sock))
-    {
-      //        logString("Failed closing socket../");
-        return 1;
-    }
-    return 0;
-}
-
-
-
-
-
-int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv, int fdcont){
+int waitForAction(fd_set master, fd_set *read_fds, int fdmax,
+									struct timeval tv, int fdcont){
 
   int i;
 
-  *read_fds = master; // copy it
+	//Copy master file descriptor list
+  *read_fds = master;
 
-  for(i=0; i<=fdmax; i++){
+  for(i = 0; i <= fdmax; i++){
     if(FD_ISSET(i, read_fds)){
       printf("FDISSET %d\n", i);
     }
   }
-
 
   tv.tv_sec = 60;
   i = select(fdmax+1, read_fds, NULL, NULL, &tv);
@@ -108,16 +70,19 @@ int waitForAction(fd_set master, fd_set * read_fds, int fdmax, struct timeval tv
     perror("select");
     exit(4);
   }
+
   if (i == 0){
     printf("I'm waiting...\n");
     return -1;
   }
+
   //L1
   for(; fdcont<=fdmax; fdcont++){
     if (FD_ISSET(fdcont, read_fds)){ //socket ready
       return fdcont;
-    }//End fd isset
-  }//End for loop
+    } //End fd isset
+  } //End for loop
+
   return 0;
 }
 
@@ -406,10 +371,4 @@ int main(int argc, char* argv[])
   close_socket(browserListener);
   //endLogger();
   return EXIT_SUCCESS;
-}
-
-void sigINThandler(int sig)
-{
-  close_socket(3);
-  //endLogger();
 }
