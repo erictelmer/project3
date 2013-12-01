@@ -19,8 +19,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "throughput_connections.h"
-#include "command_line.h"
+#include "proxy.h"
 
 /*#include <openssl/rsa.h>
 #include <openssl/crypto.h>
@@ -31,12 +30,9 @@
 */
 
 
-#include "log/log.h"
+
 //#include "generateResponse.h"
 
-#define RAND_PORT 8090
-#define SERV_PORT 8080
-#define BUF_SIZE 4096
 
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
