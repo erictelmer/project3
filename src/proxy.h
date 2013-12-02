@@ -92,11 +92,34 @@ void * Realloc(void *pointer, size_t size, char *name);
 //
 int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv, int fdcont);
 
+// 
+// acceptBrowserServerConnectionToStream: 
+// Parameters:
+//
+// Returns:
+//
+//
 int acceptBrowserServerConnectionToStream(int browserListener, fd_set *master, int *fdmax, stream_s **stream, command_line_s *commandLine);
 
-
+//
+// receive: 
+// Parameters:
+// Returns:
+//
+//
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream);
 
+//
+// sendResponse: 
+// Parameters:
+// Returns:
+//
+//
 int sendResponse(int fd, char *response, int responselen);
 
+//
+// setupBrowserListenerSocket
+// Parameters:
+// Returns:
+//
 int setupBrowserListenerSocket(int *plistener, unsigned short port);

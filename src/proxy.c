@@ -8,7 +8,13 @@
 *******************************************************************************/
 
 #include "proxy.h"
-/*
+
+/* 
+
+Everything commented out below is in the proxy.h file
+proxy.c should still compile
+To be removed before final submission
+
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdio.h>
@@ -30,8 +36,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-
-
 #include "log.h"
 //#include "generateResponse.h"
 
@@ -39,26 +43,27 @@
 #define SERV_PORT 8080
 #define BUF_SIZE 4096
 
-
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
 #define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
 */
+
 static FILE *log, *p_log, *dns_log;
 
-
-void sigINThandler(int);
-
-void leave(void){
-  //        endLogger();
+void sigINThandler(int sig){
+	close_socket(3);
 }
 
-void * Malloc(size_t size, char * name){
-  void * loc;
+void leave(void){
+  //endLogger();
+}
+
+void * Malloc(size_t size, char *name){
+  void *loc;
   loc = malloc(size);
   if (loc == NULL){
-    //   logString("MALLOC ERROR");
+    log_msg(log, "MALLOC ERROR");
     exit(3);
   }
   // printf("Mallocing %s of size: %x @ %p\n", name, (unsigned int)size, loc);
@@ -432,10 +437,4 @@ int main(int argc, char* argv[])
   close_socket(browserListener);
   //endLogger();
   return EXIT_SUCCESS;
-}
-
-void sigINThandler(int sig)
-{
-  close_socket(3);
-  //endLogger();
 }
