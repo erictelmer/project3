@@ -7,6 +7,8 @@
 *                                                                             *
 *******************************************************************************/
 
+#include "proxy.h"
+/*
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdio.h>
@@ -20,16 +22,19 @@
 
 #include "proxy.h"
 
-/*#include <openssl/rsa.h>
+#include <openssl/rsa.h>
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-*/
 
 
 
+<<<<<<< HEAD
+=======
+#include "log.h"
+>>>>>>> 4e1e0509d3ed332ca903e476e60e0a216e07104b
 //#include "generateResponse.h"
 
 
@@ -37,9 +42,9 @@
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
-#define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
-
-
+#define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
+*/
+static FILE *log, *p_log, *dns_log;
 
 
 void sigINThandler(int);
@@ -84,7 +89,7 @@ int close_socket(int sock)
 
 
 
-int waitForAction(fd_set *master, fd_set * read_fds, int fdmax, struct timeval tv, int fdcont){
+int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv, int fdcont){
 
   int i;
 

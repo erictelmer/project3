@@ -11,7 +11,7 @@ ParseXML Test
 				1. Create a main function to test the function
 						testParse.c
 				2. Compile the parseTest and the orderedList file
-						gcc ../orderedList/orderedList.c testParse.c -o parse
+						gcc ../src/orderedList.c testParse.c -o parse
 				3. Run the parseTest
 						./parse
 				4. Inspect the output
@@ -34,7 +34,7 @@ Logger Test
 			1. Create a main function to test the function
 					log.c
 			2. Compile the logTest and the log file
-					gcc ../log/log.c testLog.c -o log
+					gcc ../src/log.c testLog.c -o log
 			3. Run the logTest
 					./log
 			4. Inspect the output
