@@ -26,8 +26,7 @@ To be removed before final submission
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "throughput_connections.h"
-#include "command_line.h"
+#include "proxy.h"
 
 #include <openssl/rsa.h>
 #include <openssl/crypto.h>
@@ -36,12 +35,17 @@ To be removed before final submission
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+<<<<<<< HEAD
+=======
+
+
+<<<<<<< HEAD
+=======
+>>>>>>> 14f0e57fde3b955c41abd82c481b97277a88457c
 #include "log.h"
+>>>>>>> 4e1e0509d3ed332ca903e476e60e0a216e07104b
 //#include "generateResponse.h"
 
-#define RAND_PORT 8090
-#define SERV_PORT 8080
-#define BUF_SIZE 4096
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
