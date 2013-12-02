@@ -493,6 +493,7 @@ int main(int argc, char* argv[])
 	    }
 
 	    if (strstr(header, "text/xml") != NULL){
+		//iniitialize throughput to be lowest one
 	      printf("%s\n", buf);
 	    }
 	  }
