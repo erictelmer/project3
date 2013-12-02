@@ -1,4 +1,3 @@
-
 /******************************************************************************
 * proxy.c                                                               *
 *                                                                             *
@@ -46,7 +45,7 @@
 void sigINThandler(int);
 
 void leave(void){
-  //	endLogger();
+  //        endLogger();
 }
 
 void * Malloc(size_t size, char * name){
@@ -172,7 +171,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
 
   //accept new socket to browser
   if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
-			    &addr_size)) == -1)
+                            &addr_size)) == -1)
     {
       close(browserListener);
       //      logString("Error accepting connection.");
@@ -200,10 +199,6 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   return 0;
 }
 
-
-
-
-
 //returns bytes read
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream){
   int readret;
@@ -211,14 +206,14 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
   if ((readret = recv(fd, *buf, 1, MSG_PEEK)) > 0)//Check if connection closed
     {
       /*if (!FD_ISSET(fd, &write_fds)) {
-	memset(*buf,0, BUF_SIZE);
-	//	logString("Could not write");
-	return -2;
-	}*/
+        memset(*buf,0, BUF_SIZE);
+        //        logString("Could not write");
+        return -2;
+        }*/
       //Http handling//
       if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0){
-	//logString("Read data from fd:%d", fd);
-	return readret;
+        //logString("Read data from fd:%d", fd);
+        return readret;
       }
       //End gttp handling//
       memset(*buf,0,BUF_SIZE);
@@ -239,7 +234,7 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
     printf("FDSET: ");
     for(i=0; i<=*fdmax; i++){
       if(FD_ISSET(i, master)){
-	printf(", %d", i);
+        printf(", %d", i);
       }
     }
     printf("\n");
@@ -295,8 +290,6 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   *plistener = listener;
   return 0;
 }
-
-
 
 int main(int argc, char* argv[])
 {
@@ -354,79 +347,79 @@ int main(int argc, char* argv[])
       printf("Wait for action returned, sok = %d\n", sock);
       if (sock <0) continue;//select timeout
       if (sock == 0){//read through read_fs , start from beginning
-	sockcont = 0;
-	continue;
+        sockcont = 0;
+        continue;
       }
       sockcont = sock + 1;
       
       
       //Browser is requesting new connection
-      if (sock == browserListener){ //new connection	
-	if (stream == NULL){
-	 
-	}
-	if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, &stream, &commandLine) < 0)//add connection to stream
-	  //add browser sock to read_fs
-	  return EXIT_FAILURE;
-	//if no current streams 
-	
+      if (sock == browserListener){ //new connection        
+        if (stream == NULL){
+         
+        }
+        if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, &stream, &commandLine) < 0)//add connection to stream
+          //add browser sock to read_fs
+          return EXIT_FAILURE;
+        //if no current streams 
+        
       }
 
       else {
-	//Determine if coming from browser or server
-	printf("Determening if coming from browser or server\n");
-	connection =  getConnectionFromSocket(stream, sock);
+        //Determine if coming from browser or server
+        printf("Determening if coming from browser or server\n");
+        connection =  getConnectionFromSocket(stream, sock);
 
-	if (connection == NULL){
-	  printf("NULL connec\n");
-	  return EXIT_FAILURE;
-	}
-	printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->server_sock);
+        if (connection == NULL){
+          printf("NULL connec\n");
+          return EXIT_FAILURE;
+        }
+        printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->server_sock);
 
-	if (sock == connection->browser_sock){
-	  ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-	  printf("Recieved %d bytes from browser\n", ret);
-	  if (ret > 0)
-	    printf("Recieved from browser:\n\n\n\n%s\n\n\n\n", buf);
-	    sendResponse(connection->server_sock, buf, ret);
-	  //Recieved request from browser
-	  //Determine if request is for nondata(html,swf,f4m(manifest))
-	  if (1)/*non-data*/{
-	    //if beggining of stream fill in stream_s
-	    //IF NEW CHUNK FILL IN CONNECTION
-	  }
-	  else{//data, seg
-	    //requestedChunk(connection, chunkname);//will start throughput
-	    
-	    //modify request for given bitrate
-	    //send request
-	  }
-	}
+        if (sock == connection->browser_sock){
+          ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
+          printf("Recieved %d bytes from browser\n", ret);
+          if (ret > 0)
+            printf("Recieved from browser:\n\n\n\n%s\n\n\n\n", buf);
+            sendResponse(connection->server_sock, buf, ret);
+          //Recieved request from browser
+          //Determine if request is for nondata(html,swf,f4m(manifest))
+          if (1)/*non-data*/{
+            //if beggining of stream fill in stream_s
+            //IF NEW CHUNK FILL IN CONNECTION
+          }
+          else{//data, seg
+            //requestedChunk(connection, chunkname);//will start throughput
+            
+            //modify request for given bitrate
+            //send request
+          }
+        }
 
-	if (sock == connection->server_sock){
-	  ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-	  printf("Recieved %d bytes from server\n", ret);
-	  printf("FDSET: ");
-	  int i;
-	  for(i=0; i<=fdmax; i++){
-	    if(FD_ISSET(i, &master)){
-	      printf(", %d", i);
-	    }
-	  }
-	  printf("\n");
+        if (sock == connection->server_sock){
+          ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
+          printf("Recieved %d bytes from server\n", ret);
+          printf("FDSET: ");
+          int i;
+          for(i=0; i<=fdmax; i++){
+            if(FD_ISSET(i, &master)){
+              printf(", %d", i);
+            }
+          }
+          printf("\n");
 
-	  if (ret > 0)
-	    printf("Recieved from server:\n\n\n\n%s\n\n\n\n", buf);
-	    sendResponse(connection->browser_sock, buf, ret);
-	  //Recieved reply from server
-	  //if non-data
-	     //fill in stream
-	  //if data
-	    //find chunk in connection
-	    //edit throughput
-	    //forward
-	}
-	
+          if (ret > 0)
+            printf("Recieved from server:\n\n\n\n%s\n\n\n\n", buf);
+            sendResponse(connection->browser_sock, buf, ret);
+          //Recieved reply from server
+          //if non-data
+             //fill in stream
+          //if data
+            //find chunk in connection
+            //edit throughput
+            //forward
+        }
+        
 
       }//End else
     }//End while(1)

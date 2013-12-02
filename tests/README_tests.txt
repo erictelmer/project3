@@ -1,4 +1,4 @@
-# README_UNITTESTS.TXT
+# README_TESTS.TXT
 # This file contains a brief description and documentation
 # of the unit tests for the important functions for the Video CDN
 
