@@ -20,9 +20,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "tput/throughput_connections.h"
-#include "command/command_line.h"
-#include "log/log.h"
+#include "throughput_connections.h"
+#include "command_line.h"
+#include "log.h"
 
 //#include <openssl/rsa.h>
 //#include <openssl/crypto.h>
@@ -90,24 +90,12 @@ void * Realloc(void *pointer, size_t size, char *name);
 // Returns:
 // 		
 //
-int waitForAction(fd_set master, 
-									fd_set *read_fds,
-									int fdmax,
-									struct timeval tv,
-									int fdcont);
+int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv, int fdcont);
 
-int acceptBrowserServerConnectionToStream(int browserListener,
-																					fd_set *master,
-																					int *fdmax,
-																					stream_s **stream,
-																					command_line_s *commandLine);
+int acceptBrowserServerConnectionToStream(int browserListener, fd_set *master, int *fdmax, stream_s **stream, command_line_s *commandLine);
 
 
-int receive(int fd,
-						fd_set *master,
-						int *fdmax,
-						int listener,
-						char (* buf)[BUF_SIZE]);
+int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream);
 
 int sendResponse(int fd, char *response, int responselen);
 
