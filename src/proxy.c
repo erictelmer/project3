@@ -43,7 +43,9 @@
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
 #define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
 
-
+static FILE *log;
+static FILE *p_log;
+static FILE *dns_log;
 
 
 void sigINThandler(int);
