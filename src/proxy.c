@@ -328,12 +328,13 @@ int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int ch
   float alpha = stream->alpha;
   time(&chunk->time_finished);
   duration = difftime(&chunk->time_finished, &chunk->time_started);
-  throughput = (chunkSize / duration) * 8.0 / 1000;
+  throughput = (chunkSize / duration) * (8.0 / 1000);
   stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
   //log
   removeChunkFromConnections(chunk, connection);
   //beware of freeing the entire list if concurrent chunks
   freeChunkList(chunk);
+  return 1;
 }
 
 
@@ -455,8 +456,8 @@ int main(int argc, char* argv[])
           ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
 	  
 
-	  
-	  char *p;
+	  //Use close to avoid streamlining 
+	  char *p, *type, *len;
 	  char close[] = "close     ";
 	  char contentType[] = "Content-Type: ";
 	  char header[100];
@@ -471,6 +472,7 @@ int main(int argc, char* argv[])
 	  
 	  
 	  // printf("Recieved from server\n%s\n",buf);
+	  // p is a pointer to Content-Type
 	  p = strstr(buf, contentType);
 	  if (p != NULL){
 	    x = strcspn(p, "\n");
@@ -478,10 +480,18 @@ int main(int argc, char* argv[])
 	    memcpy(header, p, x);
 	    header[x] = '\0';
 	    fflush(stdout);
-	    printf("CONTENT-TYPE: %sblah\n", header);
-	    fflush(stdout);
-	    printf("%s\n", header);
-	    
+
+	    if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
+		type = type + strlen("Content-Type: ");
+	    }
+
+	    //if video/f4f then we need to get content length
+	    if( strstr(type, "video/f4f") != NULL){
+		if ((len = strstr(buf, "Content-Length: ")) != NULL){
+		   len = len + strlen("Content-Length: ");
+		}
+	    }
+
 	    if (strstr(header, "text/xml") != NULL){
 	      printf("%s\n", buf);
 	    }
@@ -498,10 +508,10 @@ int main(int argc, char* argv[])
             //edit throughput
             //forward
         }
-        
 
       }//End else
     }//End while(1)
+
   close_socket(browserListener);
   //endLogger();
   return EXIT_SUCCESS;
