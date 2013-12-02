@@ -46,7 +46,7 @@
 // Parameters:
 // 		int sock: socket to be closed
 // Returns:
-// 		1 on SUCCESS and 0 on FAILURE
+// 		0 on SUCCESS and 1 on FAILURE
 // 		
 int close_socket(int sock);
 
@@ -111,7 +111,6 @@ int receive(int fd,
 	    connection_list_s *connection,
 	    stream_s *stream);
 
-<<<<<<< HEAD
 // 
 // acceptBrowserServerConnectionToStream: 
 // Parameters:
@@ -128,8 +127,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set *master, i
 //
 //
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream);
-=======
->>>>>>> 14f0e57fde3b955c41abd82c481b97277a88457c
+
 
 //
 // sendResponse: 

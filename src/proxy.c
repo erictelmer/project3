@@ -35,16 +35,8 @@ To be removed before final submission
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-<<<<<<< HEAD
-=======
-
-
-<<<<<<< HEAD
-=======
->>>>>>> 14f0e57fde3b955c41abd82c481b97277a88457c
 #include "log.h"
->>>>>>> 4e1e0509d3ed332ca903e476e60e0a216e07104b
-//#include "generateResponse.h"
+#include "generateResponse.h"
 
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
@@ -67,18 +59,18 @@ void * Malloc(size_t size, char *name){
   void *loc;
   loc = malloc(size);
   if (loc == NULL){
-    log_msg(log, "MALLOC ERROR");
+    log_msg(log, "Error: Malloc on %s\n", name);
     exit(3);
   }
   // printf("Mallocing %s of size: %x @ %p\n", name, (unsigned int)size, loc);
   return loc;
 }
 
-void * Realloc(void * pointer, size_t size, char * name){
-  void * loc;
+void * Realloc(void *pointer, size_t size, char *name){
+  void *loc;
   loc =  realloc(pointer,size);
   if (loc == NULL){
-    //   logString("MALLOC ERROR");
+    log_msg(log, "Error: Realloc on %s\n", name);
     exit(3);
   }
   //  printf("Reallocing %s @ %p of size: %x @ %p\n", name,pointer, (unsigned int)size, loc);
@@ -87,12 +79,11 @@ void * Realloc(void * pointer, size_t size, char * name){
 
 int close_socket(int sock)
 {
-    if (close(sock))
-    {
-      //        logString("Failed closing socket../");
+  if (close(sock)){
+    log_msg(log, "Failed closing socket../n");
         return 1;
-    }
-    return 0;
+  }
+  return 0;
 }
 
 
