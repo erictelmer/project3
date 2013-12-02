@@ -1,10 +1,10 @@
-/************************************************************************
- * orderedList.h                                                       	*
+/**********************************************************************
+ * orderedList.h                                                      *
  *                                                                  	*
  * Description: This file contains the parameters for an orderedList	*
  *              and the structures and method calls                 	*
  *                                                                  	*
- ***********************************************************************/
+ *********************************************************************/
 #ifndef _ORDEREDLIST_H_
 #define _ORDEREDLIST_H_
 
@@ -50,8 +50,23 @@ typedef struct upL
 }uploadList;
 
 
-
+//
+// parseXML: parses the XML for available bitrates
+// Parameters:
+// 		char* file: buffer containing the XML file
+// 		orderedList *list: empty orderedList
+// Returns:
+// 		-1 on ERROR, 1 on SUCCESS
+//
 int parseXML(const char *file, orderedList *list);
+
+// 
+// getBitrate: function to find the best bitrate based on throughput
+// Parameters:
+// 		int tput: max tput
+// 		orderedList *list: bitrates list
+// Returns:
+// 		int: max bitrate available
 int getBitrate(int tput, orderedList *list);
 				
 

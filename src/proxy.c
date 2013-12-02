@@ -47,6 +47,14 @@ To be removed before final submission
 
 static FILE *log, *p_log, *dns_log;
 
+int close_socket(int sock){
+  if (close(sock)){
+    log_msg(log, "Failed closing socket..\n");
+        return 1;
+  }
+  return 0;
+}
+
 void sigINThandler(int sig){
 	close_socket(3);
 }
@@ -76,19 +84,6 @@ void * Realloc(void *pointer, size_t size, char *name){
   //  printf("Reallocing %s @ %p of size: %x @ %p\n", name,pointer, (unsigned int)size, loc);
   return loc;
 }
-
-int close_socket(int sock)
-{
-  if (close(sock)){
-    log_msg(log, "Failed closing socket../n");
-        return 1;
-  }
-  return 0;
-}
-
-
-
-
 
 int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv, int fdcont){
 

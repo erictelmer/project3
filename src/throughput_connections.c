@@ -65,7 +65,6 @@ chunk_list_s *freeChunkList(chunk_list_s *chunkList){
 
 void freeConnection(connection_list_s *connection){
   free(connection);
-  fuckUp();
 }
 
 connection_list_s *freeConnectionList(connection_list_s *connectionList){

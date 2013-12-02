@@ -96,21 +96,6 @@ int waitForAction(fd_set *master,
 		  struct timeval tv,
 		  int fdcont);
 
-int acceptBrowserServerConnectionToStream(int browserListener,
-					  fd_set *master,
-					  int *fdmax,
-					  stream_s **stream,
-					  command_line_s *commandLine);
-
-
-int receive(int fd,
-	    fd_set *master,
-	    int *fdmax,
-	    int listener,
-	    char (* buf)[BUF_SIZE],
-	    connection_list_s *connection,
-	    stream_s *stream);
-
 // 
 // acceptBrowserServerConnectionToStream: 
 // Parameters:
