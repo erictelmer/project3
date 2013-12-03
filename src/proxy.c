@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
 	  printf("Recieved  request from browser:\n%s\n\n", header);
           if (ret > 0){
 	    if (1){//Get request is /, /swfobject.js, /strobeMediaPlayback forward unchanged
-	      if (0)
+	      if (1)
 		printf("Recieved from browswer\n%s\n", buf); 
 	      sendResponse(connection->server_sock, buf, ret);
 	    }
@@ -520,13 +520,15 @@ int main(int argc, char* argv[])
 	      {
 	      }
 	    if(1)/*No content length, forward bytes, if == content length, finish chunk */
+	      {
+	      }
 	  }
-        }
-
+	}
+	
       }//End else
     }//End while(1)
-
+  
   close_socket(browserListener);
-  //endLogger();
+      //endLogger();
   return EXIT_SUCCESS;
 }
