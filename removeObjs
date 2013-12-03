@@ -1,0 +1,6 @@
+rm command_line.o
+rm log.o
+rm orderedList.o
+rm proxy
+rm proxy.o
+rm throughput_connections.o

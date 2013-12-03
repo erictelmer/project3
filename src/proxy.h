@@ -47,7 +47,7 @@
 // Parameters:
 // 		int sock: socket to be closed
 // Returns:
-// 		1 on SUCCESS and 0 on FAILURE
+// 		0 on SUCCESS and 1 on FAILURE
 // 		
 int close_socket(int sock);
 
@@ -97,22 +97,35 @@ int waitForAction(fd_set *master,
 		  struct timeval tv,
 		  int fdcont);
 
-int acceptBrowserServerConnectionToStream(int browserListener,
-					  fd_set *master,
-					  int *fdmax,
-					  stream_s **stream,
-					  command_line_s *commandLine);
+// 
+// acceptBrowserServerConnectionToStream: 
+// Parameters:
+//
+// Returns:
+//
+//
+int acceptBrowserServerConnectionToStream(int browserListener, fd_set *master, int *fdmax, stream_s **stream, command_line_s *commandLine);
+
+//
+// receive: 
+// Parameters:
+// Returns:
+//
+//
+int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream);
 
 
-int receive(int fd,
-	    fd_set *master,
-	    int *fdmax,
-	    int listener,
-	    char (* buf)[BUF_SIZE],
-	    connection_list_s *connection,
-	    stream_s *stream);
-
-
+//
+// sendResponse: 
+// Parameters:
+// Returns:
+//
+//
 int sendResponse(int fd, char *response, int responselen);
 
+//
+// setupBrowserListenerSocket
+// Parameters:
+// Returns:
+//
 int setupBrowserListenerSocket(int *plistener, unsigned short port);

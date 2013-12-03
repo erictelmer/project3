@@ -8,7 +8,13 @@
 *******************************************************************************/
 
 #include "proxy.h"
-/*
+
+/* 
+
+Everything commented out below is in the proxy.h file
+proxy.c should still compile
+To be removed before final submission
+
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdio.h>
@@ -29,14 +35,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-
-
-<<<<<<< HEAD
-=======
 #include "log.h"
->>>>>>> 4e1e0509d3ed332ca903e476e60e0a216e07104b
-//#include "generateResponse.h"
-
+#include "generateResponse.h"
 
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
@@ -44,50 +44,50 @@
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
 #define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
 */
+
 static FILE *log, *p_log, *dns_log;
+<<<<<<< HEAD
 int port_offset;
+=======
 
-void sigINThandler(int);
+int close_socket(int sock){
+  if (close(sock)){
+    log_msg(log, "Failed closing socket..\n");
+        return 1;
+  }
+  return 0;
+}
+>>>>>>> 1694048b542e7ee47dbd2896c2580cae1933521b
 
-void leave(void){
-  //        endLogger();
+void sigINThandler(int sig){
+	close_socket(3);
 }
 
-void * Malloc(size_t size, char * name){
-  void * loc;
+void leave(void){
+  //endLogger();
+}
+
+void * Malloc(size_t size, char *name){
+  void *loc;
   loc = malloc(size);
   if (loc == NULL){
-    //   logString("MALLOC ERROR");
+    log_msg(log, "Error: Malloc on %s\n", name);
     exit(3);
   }
   // printf("Mallocing %s of size: %x @ %p\n", name, (unsigned int)size, loc);
   return loc;
 }
 
-void * Realloc(void * pointer, size_t size, char * name){
-  void * loc;
+void * Realloc(void *pointer, size_t size, char *name){
+  void *loc;
   loc =  realloc(pointer,size);
   if (loc == NULL){
-    //   logString("MALLOC ERROR");
+    log_msg(log, "Error: Realloc on %s\n", name);
     exit(3);
   }
   //  printf("Reallocing %s @ %p of size: %x @ %p\n", name,pointer, (unsigned int)size, loc);
   return loc;
 }
-
-int close_socket(int sock)
-{
-    if (close(sock))
-    {
-      //        logString("Failed closing socket../");
-        return 1;
-    }
-    return 0;
-}
-
-
-
-
 
 int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv, int fdcont){
 
@@ -482,10 +482,4 @@ int main(int argc, char* argv[])
   close_socket(browserListener);
   //endLogger();
   return EXIT_SUCCESS;
-}
-
-void sigINThandler(int sig)
-{
-  close_socket(3);
-  //endLogger();
 }

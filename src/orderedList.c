@@ -1,25 +1,14 @@
- /***********************************************************************
- * orderedList.c                                                       	*
+ /*********************************************************************
+ * orderedList.c                                                      *
  *                                                             		    *
  * Description: This file contains the functions for an orderedList.	*
  *                                                                  	*
- ***********************************************************************/
+ *********************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include "orderedList.h"
 
-
-/* Function to parse XML for available bitrates */
-// takes in an XML file and an empty orderedList
-int parseXML(const char *file, orderedList *list){
-	FILE *fp;
+int parseXML(orderedList *list){
+FILE *fp;
 
 		if (file == NULL)
 		{
@@ -32,7 +21,7 @@ int parseXML(const char *file, orderedList *list){
 				return -1;
 		}
 
-		fp = fopen(file, "r");
+		fp = fopen("/var/www/vod/big_buck_bunny.f4m", "r");
 		char line[1024];
 		char *num;
 		while (fgets(line, sizeof(line), fp)){

@@ -27,13 +27,11 @@ FILE *open_log(FILE *log, const char *path){
 
 void log_proxy(FILE *log, const char *message, ...){
   time_t rawtime;
-  struct tm *timeinfo;
-  char buffer[80];
-
+  //struct tm *timeinfo;
   time(&rawtime);
 
   //Print the current time in seconds since the epoch
-  fprintf(log, "%llu\t", (uintmax_t)&rawtime);
+  fprintf(log, "%lu\t", (uintmax_t)&rawtime);
   fflush(log);
   va_list arg_point;
   va_start(arg_point, message);
@@ -43,13 +41,11 @@ void log_proxy(FILE *log, const char *message, ...){
 
 void log_dns(FILE *log, const char *message, ...){
 	time_t rawtime; 
-	struct tm *timeinfo;
-  char buffer[80];
-
+	//struct tm *timeinfo;
   time(&rawtime);
 
   //Print the current time in seconds since the epoch
-  fprintf(log, "%llu\t", (uintmax_t)&rawtime);
+  fprintf(log, "%lu\t", (uintmax_t)&rawtime);
   fflush(log);
   va_list arg_point;
   va_start(arg_point, message);

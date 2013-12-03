@@ -3,7 +3,7 @@ CC 		= gcc
 CFLAGS		= -g -Wall -DDEBUG
 LDFLAGS		= -lm
 
-MODS            = proxy.o throughput_connections.o command_line.o orderedList.o
+MODS            = proxy.o throughput_connections.o command_line.o orderedList.o log.o
 
 VPATH           = src
 
