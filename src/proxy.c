@@ -226,7 +226,7 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
     FD_CLR(connection->server_sock, master);
     FD_CLR(connection->browser_sock, master);
 
-    printf("Closing connection associated with sockets %d,%d\n", connection->server_sock, connection->browser_sock);
+    printf("Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
 
     removeConnectionFromStream(connection, stream);
     freeConnection(connection);
@@ -499,8 +499,8 @@ int main(int argc, char* argv[])
 	  
 	  
           if (ret > 0){
-	    if (0)
-	      printf("Recieved :\n%s\n", buf);
+	    if (1)
+	      printf("Recieved %d:\n%s\n",ret, buf);
             sendResponse(connection->browser_sock, buf, ret);
 	    if(1)/*Content type is one of the following forward untouched:
 		  text/html, application/javascript, application/x-shockwave-flash*/
@@ -511,9 +511,12 @@ int main(int argc, char* argv[])
 	      {
 	      }
 	    if(1)/*Content type is video/f4f, get content length to detrmine when the chunk is done?
+		   measure header length until /n/r/n/r and then subreact that from ret
+		   to see how much data you got
 		  and forward*/
 	      {
 	      }
+	    if(1)/*No content length, forward bytes, if == content length, finish chunk */
 	  }
         }
 
