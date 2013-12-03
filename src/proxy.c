@@ -433,21 +433,23 @@ int main(int argc, char* argv[])
 	  memcpy(header, buf, x);
 	  header[x] = '\0';
 	  printf("Recieved  request from browser:\n%s\n\n", header);
-          if (ret > 0)
-	    //if Get request ends with .f4m parse 
-            sendResponse(connection->server_sock, buf, ret);
-          //Recieved request from browser
-          //Determine if request is for nondata(html,swf,f4m(manifest))
-          if (1)/*non-data*/{
-            //if beggining of stream fill in stream_s
-            //IF NEW CHUNK FILL IN CONNECTION
-          }
-          else{//data, seg
-            //requestedChunk(connection, chunkname);//will start throughput
-            
-            //modify request for given bitrate
-            //send request
-          }
+          if (ret > 0){
+	    if (1){//Get request is /, /swfobject.js, /strobeMediaPlayback forward unchanged
+	      if (0)
+		printf("Recieved from browswer\n%s\n", buf); 
+	      sendResponse(connection->server_sock, buf, ret);
+	    }
+	    if (1)/*Get request is .f4m, either:
+		    1. send request for .f4m, saved it, then send GET ..._nolist.f4m and forward that
+		    2. send request for both and decide which one to forward back by parsing*/{
+	    }
+	    if (1)/*Get request is for /vod/bitratesegFrag modify it for current throughput
+		    and start a new chunk*/
+	      {
+		
+	      }
+	  }
+	  
         }
 	
         if (sock == connection->server_sock){
@@ -488,18 +490,26 @@ int main(int argc, char* argv[])
 	  }
 	  
 	  
-          if (ret > 0)
+          if (ret > 0){
+	    if (0)
+	      printf("Recieved :\n%s\n", buf);
             sendResponse(connection->browser_sock, buf, ret);
-          //Recieved reply from server
-          //if non-data
-             //fill in stream
-          //if data
-            //find chunk in connection
-            //edit throughput
-            //forward
+	    if(1)/*Content type is one of the following forward untouched:
+		  text/html, application/javascript, application/x-shockwave-flash*/
+	      {
+		
+	      }
+	    if(1)/*Content type is text/html decide what to do based on decision above */
+	      {
+	      }
+	    if(1)/*Content type is video/f4f, get content length to detrmine when the chunk is done?
+		  and forward*/
+	      {
+	      }
+	  }
         }
         
-
+	
       }//End else
     }//End while(1)
   close_socket(browserListener);
