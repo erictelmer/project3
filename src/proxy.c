@@ -327,7 +327,7 @@ int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int ch
   double throughput;
   float alpha = stream->alpha;
   time(&chunk->time_finished);
-  duration = difftime(&chunk->time_finished, &chunk->time_started);
+  duration = difftime(chunk->time_finished, chunk->time_started);
   throughput = (chunkSize / duration) * (8.0 / 1000);
   stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
   //log
@@ -367,11 +367,8 @@ int main(int argc, char* argv[])
   if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
 
-  //  p_log = open_log(p_log, "parserLog.txt");
-  //  initLogger(commandLine->logfile);
-
-
-
+  p_log = open_log(p_log, commandLine.logfile);
+  
   tv.tv_sec = 60;
   tv.tv_usec = 0;
   FD_ZERO(&master);
@@ -519,12 +516,7 @@ int main(int argc, char* argv[])
 	      }
 	  }
         }
-<<<<<<< HEAD
-        
-	
-=======
 
->>>>>>> d98f31586ce99c9457ea676eae92d24f36ee9428
       }//End else
     }//End while(1)
 

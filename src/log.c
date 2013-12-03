@@ -10,6 +10,7 @@
  *                                                              							*
  *****************************************************************************/
 
+#include "throughput_connections.h"
 #include "log.h"
 
 FILE *open_log(FILE *log, const char *path){
@@ -25,18 +26,30 @@ FILE *open_log(FILE *log, const char *path){
 	return log;
 }
 
-void log_proxy(FILE *log, const char *message, ...){
-  time_t rawtime;
-  //struct tm *timeinfo;
-  time(&rawtime);
 
-  //Print the current time in seconds since the epoch
-  fprintf(log, "%lu\t", (uintmax_t)&rawtime);
+void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st){
+
+  time_t rawtime;
+  time(&rawtime);
+  
+  //calculate duration
+  float dur = time(&chunk->time_finished) - time(&chunk->time_started);
+  
+  //calculate throughput for current chunk
+  int tput = (chunk->chunk_size / dur)*(8.0/1000);
+  
+  //current EWMA tput estimate in Kbps
+  int avg = st->current_throughput;
+  
+  //bitrate
+  int br = getBitrate(st->current_throughput, st->available_bitrates);
+  
+  //server-ip
+  //name of the file proxy requested
+  
+  //Print log
+  fprintf(log, "%lu\t%f\t%d\t%d\t%d\n", (uintmax_t)&rawtime, dur, tput, avg, br);
   fflush(log);
-  va_list arg_point;
-  va_start(arg_point, message);
-  vfprintf(log, message, arg_point);
-  va_end(arg_point);
 }
 
 void log_dns(FILE *log, const char *message, ...){
