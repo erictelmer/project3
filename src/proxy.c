@@ -307,7 +307,34 @@ int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int ind
 }
 
 
+//Call before sending request
+int startChunk(connection_list_s *connection, char *chunkName){
+  //Check for NULL
+  chunk_list_s *chunk = newChunkList();
+  addChunkToConnections(chunk, connection);
 
+  //+1 to include NULL char
+  memcpy(chunk->chunk_name, chunkName, strlen(chunkName) + 1);
+
+  time(&chunk->time_started);
+  return 0;
+}
+
+//assuming only 1 chunk active at once
+int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int chunkSize){
+  chunk_list_s *chunk = connection->chunk_throughputs;
+  double duration;
+  double throughput;
+  float alpha = stream->alpha;
+  time(&chunk->time_finished);
+  duration = difftime(&chunk->time_finished, &chunk->time_started);
+  throughput = (chunkSize / duration) * 8.0 / 1000;
+  stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
+  //log
+  removeChunkFromConnections(chunk, connection);
+  //beware of freeing the entire list if concurrent chunks
+  freeChunkList(chunk);
+}
 
 
 int main(int argc, char* argv[])
@@ -444,11 +471,11 @@ int main(int argc, char* argv[])
 	  
 	  
 	  // printf("Recieved from server\n%s\n",buf);
-	  tmp = strstr(buf, contentType);
-	  if (tmp != NULL){
-	    x = strcspn(tmp, "\n");
+	  p = strstr(buf, contentType);
+	  if (p != NULL){
+	    x = strcspn(p, "\n");
 	    if (x > 99) x = 99;
-	    memcpy(header, tmp, x);
+	    memcpy(header, p, x);
 	    header[x] = '\0';
 	    fflush(stdout);
 	    printf("CONTENT-TYPE: %sblah\n", header);

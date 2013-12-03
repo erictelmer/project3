@@ -12,7 +12,7 @@
 
 #include "../orderedList/orderedList.h"
 
-#define FILENAMESIZE 36
+#define FILENAMESIZE 64
 
 typedef struct ch_through{
   time_t time_started;
