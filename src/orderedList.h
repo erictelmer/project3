@@ -58,7 +58,7 @@ typedef struct upL
 // Returns:
 // 		-1 on ERROR, 1 on SUCCESS
 //
-int parseXML(const char *file, orderedList *list);
+int parseXML(orderedList *list);
 
 // 
 // getBitrate: function to find the best bitrate based on throughput

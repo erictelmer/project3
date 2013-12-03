@@ -7,7 +7,8 @@
 
 #include "orderedList.h"
 
-int parseXML(const char *file, orderedList *list){
+int parseXML(orderedList *list){
+FILE *fp;
 
 		if (file == NULL)
 		{
@@ -20,9 +21,10 @@ int parseXML(const char *file, orderedList *list){
 				return -1;
 		}
 
+		fp = fopen("/var/www/vod/big_buck_bunny.f4m", "r");
 		char line[1024];
 		char *num;
-		while (fgets(line, sizeof(line), file)){
+		while (fgets(line, sizeof(line), fp)){
 			if (strstr(line, "bitrate=")) //found bitrate in a line
 				{
 					num = strchr(line, '"'); //num = "###"
