@@ -10,11 +10,6 @@
 int parseXML(orderedList *list){
 FILE *fp;
 
-		if (file == NULL)
-		{
-				printf("XML File is NULL\n");
-				return -1;
-		}
 		if (list == NULL)
 		{
 				printf("Bitrate List is null");
