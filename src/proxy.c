@@ -226,7 +226,7 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
     FD_CLR(connection->server_sock, master);
     FD_CLR(connection->browser_sock, master);
 
-    printf("Closing connection associated with sockets %d,%d\n", connection->server_sock, connection->browser_sock);
+    printf("Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
 
     removeConnectionFromStream(connection, stream);
     freeConnection(connection);
@@ -327,7 +327,7 @@ int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int ch
   double throughput;
   float alpha = stream->alpha;
   time(&chunk->time_finished);
-  duration = difftime(&chunk->time_finished, &chunk->time_started);
+  duration = difftime(chunk->time_finished, chunk->time_started);
   throughput = (chunkSize / duration) * (8.0 / 1000);
   stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
   //log
@@ -502,8 +502,8 @@ int main(int argc, char* argv[])
 	  
 	  
           if (ret > 0){
-	    if (0)
-	      printf("Recieved :\n%s\n", buf);
+	    if (1)
+	      printf("Recieved %d:\n%s\n",ret, buf);
             sendResponse(connection->browser_sock, buf, ret);
 	    if(1)/*Content type is one of the following forward untouched:
 		  text/html, application/javascript, application/x-shockwave-flash*/
@@ -514,17 +514,15 @@ int main(int argc, char* argv[])
 	      {
 	      }
 	    if(1)/*Content type is video/f4f, get content length to detrmine when the chunk is done?
+		   measure header length until /n/r/n/r and then subreact that from ret
+		   to see how much data you got
 		  and forward*/
 	      {
 	      }
+	    if(1)/*No content length, forward bytes, if == content length, finish chunk */
 	  }
         }
-<<<<<<< HEAD
-        
-	
-=======
 
->>>>>>> d98f31586ce99c9457ea676eae92d24f36ee9428
       }//End else
     }//End while(1)
 
