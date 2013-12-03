@@ -34,12 +34,13 @@
 
 #define RAND_PORT 8088
 #define SERV_PORT 8080
-#define BUF_SIZE 4096
+#define BUF_SIZE 10000
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
 #define FREE(x,s) /*fprintf(stderr,"freeing %s @ %p\n",s,x);*/ free(x);
+#define INC_POFFSET() port_offset++; if (port_offset > 1024) port_offset = 0;
 
 //
 // close_socket: closes the socket

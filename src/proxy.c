@@ -45,7 +45,7 @@
 #define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
 */
 static FILE *log, *p_log, *dns_log;
-
+int port_offset;
 
 void sigINThandler(int);
 
@@ -95,14 +95,6 @@ int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv
 
   *read_fds = *master; // copy it
 
-  printf("FDSET: ");
-  for(i=0; i<=fdmax; i++){
-    if(FD_ISSET(i, read_fds)){
-      printf(", %d", i);
-    }
-  }
-  printf("\n");
-  printf("Fdmax = %d\n", fdmax);
 
   tv.tv_sec = 60;
   i = select(fdmax+1, read_fds, NULL, NULL, &tv);
@@ -138,6 +130,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   addr_size = sizeof(browser_addr);
 
   printf("Attempting to accept connection\n");
+  //  Log(p_log,"Attempting to accept connection\n");
 
   if(*stream == NULL){//new stream!
     memcpy(&client_addr.sin_addr, &commandLine->fake_ip, sizeof(struct in_addr));
@@ -160,12 +153,14 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   //create new socket to server//CHECK FOR ERRORS
   if ((server_sock = socket(PF_INET, SOCK_STREAM, 0)) < 0) printf("socket failed\n");
 
-  client_addr.sin_port = htons(ntohs(client_addr.sin_port) + server_sock);
+  //change port number to unoccupied one, client_addr should be copied from stream
+  client_addr.sin_port = htons(ntohs(client_addr.sin_port) + port_offset);
+  INC_POFFSET();
 
   if (bind(server_sock, (struct sockaddr*)&client_addr, addr_size) < 0) {
     char tmp[80];
-    inet_ntop(AF_INET, &(*stream)->client_addr.sin_addr, tmp, 80);
-    printf("Bind addr:\n%s\nport:\n%d\n", tmp, ntohs((*stream)->client_addr.sin_port)); 
+    inet_ntop(AF_INET, &client_addr.sin_addr, tmp, 80);
+    printf("Socket: %d\nBind addr: %s\nport: %d\n", server_sock, tmp, ntohs(client_addr.sin_port)); 
     printf("Bind failed\n");
     perror("bind"); 
     exit(EXIT_FAILURE);
@@ -186,6 +181,8 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   //create new connection adn add it to stream
   connection = newConnection(browser_sock, server_sock);
   addConnectionToStream(connection, *stream);
+  printf("Added connections on seckets b:%d,s:%d\n",connection->browser_sock, connection->server_sock); 
+
 
   //Add socket to browser to fdset
   FD_SET(browser_sock, master); // add new socket to master set
@@ -296,6 +293,22 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   return 0;
 }
 
+//bufstrlen length of string in buf
+//str string to insert into buf
+//index: place in buf to replace
+//deleteLen: chars to write over in buf
+//replaceLen: num chars to write from str
+int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int index, unsigned int deleteLen, unsigned int replaceLen)
+{
+  char *endBuf = malloc(sizeof(char) * bufstrlen);
+  memcpy(endBuf, buf + index + deleteLen, bufstrlen + 1 - index - deleteLen);
+  memcpy(buf + index, str, replaceLen);
+  memcpy(buf + index + replaceLen - deleteLen + 1, endBuf, bufstrlen + 1 - index - deleteLen);
+  free(endBuf);
+  return 0;
+}
+
+
 int main(int argc, char* argv[])
 {
   
@@ -318,13 +331,23 @@ int main(int argc, char* argv[])
   char * response;
 
   int sockcont=0;
-  
+
+  port_offset = 0;
   signal(SIGINT, sigINThandler);
   
   if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
 
+  //  p_log = open_log(p_log, "parserLog.txt");
   //  initLogger(commandLine->logfile);
+
+
+  //tmp
+  char tmp3[] = "sho";
+  memcpy(buf, "hello", 6);
+  replaceString(buf, 5, tmp3, 3, 1, 3);
+  printf("Buf after replace:%s\n", buf);
+
 
   tv.tv_sec = 60;
   tv.tv_usec = 0;
@@ -347,9 +370,7 @@ int main(int argc, char* argv[])
   while (1)
     {
       //wait for a socket to have data to read
-      printf("Sockcont = %d\n", sockcont);
       sock = waitForAction(&master,&read_fds, fdmax, tv, sockcont);/*blocking*/
-      printf("Wait for action returned, sok = %d\n", sock);
       if (sock <0) continue;//select timeout
       if (sock == 0){//read through read_fs , start from beginning
         sockcont = 0;
@@ -372,20 +393,26 @@ int main(int argc, char* argv[])
 
       else {
         //Determine if coming from browser or server
-        printf("Determening if coming from browser or server\n");
         connection =  getConnectionFromSocket(stream, sock);
 
         if (connection == NULL){
           printf("NULL connec\n");
           return EXIT_FAILURE;
         }
-        printf("Got connections\nBrowserSock = %d, Serversock = %d\n", connection->browser_sock, connection->server_sock);
 
         if (sock == connection->browser_sock){
+	  memset(buf, 0, BUF_SIZE);
           ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-          printf("Recieved %d bytes from browser\n", ret);
+
+	  int x;
+	  char header[100];
+	  x = strcspn(buf, "\n");
+	  if (x > 99) x = 99;
+	  memcpy(header, buf, x);
+	  header[x] = '\0';
+	  printf("Recieved  request from browser:\n%s\n\n", header);
           if (ret > 0)
-            printf("Recieved from browser:\n\n\n\n%s\n\n\n\n", buf);
+	    //if Get request ends with .f4m parse 
             sendResponse(connection->server_sock, buf, ret);
           //Recieved request from browser
           //Determine if request is for nondata(html,swf,f4m(manifest))
@@ -400,21 +427,45 @@ int main(int argc, char* argv[])
             //send request
           }
         }
-
+	
         if (sock == connection->server_sock){
+	  memset(buf, 0,BUF_SIZE);
           ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-          printf("Recieved %d bytes from server\n", ret);
-          printf("FDSET: ");
-          int i;
-          for(i=0; i<=fdmax; i++){
-            if(FD_ISSET(i, &master)){
-              printf(", %d", i);
-            }
-          }
-          printf("\n");
+	  
 
+	  
+	  char *tmp;
+	  char tmp1[] = "close     ";
+	  char tmp2[] = "Content-Type: ";
+	  char header[100];
+	  memset(header, '\0', 100);
+	  int x;
+	  if ((tmp = strstr(buf, "Connection: ")) != NULL){
+	    tmp = tmp + strlen("Connection: ");
+	    memcpy(tmp, tmp1, strlen(tmp1));
+	  }
+	  
+	  
+	  
+	  // printf("Recieved from server\n%s\n",buf);
+	  tmp = strstr(buf, tmp2);
+	  if (tmp != NULL){
+	    x = strcspn(tmp, "\n");
+	    if (x > 99) x = 99;
+	    memcpy(header, tmp, x);
+	    header[x] = '\0';
+	    fflush(stdout);
+	    printf("CONTENT-TYPE: %sblah\n", header);
+	    fflush(stdout);
+	    printf("%s\n", header);
+	    
+	    if (strstr(header, "text/xml") != NULL){
+	      printf("%s\n", buf);
+	    }
+	  }
+	  
+	  
           if (ret > 0)
-            printf("Recieved from server:\n\n\n\n%s\n\n\n\n", buf);
             sendResponse(connection->browser_sock, buf, ret);
           //Recieved reply from server
           //if non-data
