@@ -34,7 +34,7 @@
 
 #define RAND_PORT 8088
 #define SERV_PORT 8080
-#define BUF_SIZE 10000
+#define BUF_SIZE 200000
 
 #define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
 #define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }

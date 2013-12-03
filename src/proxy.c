@@ -46,9 +46,8 @@ To be removed before final submission
 */
 
 static FILE *log, *p_log, *dns_log;
-<<<<<<< HEAD
 int port_offset;
-=======
+
 
 int close_socket(int sock){
   if (close(sock)){
@@ -57,7 +56,6 @@ int close_socket(int sock){
   }
   return 0;
 }
->>>>>>> 1694048b542e7ee47dbd2896c2580cae1933521b
 
 void sigINThandler(int sig){
 	close_socket(3);
@@ -309,6 +307,9 @@ int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int ind
 }
 
 
+
+
+
 int main(int argc, char* argv[])
 {
   
@@ -341,12 +342,6 @@ int main(int argc, char* argv[])
   //  p_log = open_log(p_log, "parserLog.txt");
   //  initLogger(commandLine->logfile);
 
-
-  //tmp
-  char tmp3[] = "sho";
-  memcpy(buf, "hello", 6);
-  replaceString(buf, 5, tmp3, 3, 1, 3);
-  printf("Buf after replace:%s\n", buf);
 
 
   tv.tv_sec = 60;
@@ -434,21 +429,22 @@ int main(int argc, char* argv[])
 	  
 
 	  
-	  char *tmp;
-	  char tmp1[] = "close     ";
-	  char tmp2[] = "Content-Type: ";
+	  char *p;
+	  char close[] = "close     ";
+	  char contentType[] = "Content-Type: ";
 	  char header[100];
 	  memset(header, '\0', 100);
 	  int x;
-	  if ((tmp = strstr(buf, "Connection: ")) != NULL){
-	    tmp = tmp + strlen("Connection: ");
-	    memcpy(tmp, tmp1, strlen(tmp1));
+	  if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
+	    if ((p = strstr(buf, "Connection: ")) != NULL){
+	      p = p + strlen("Connection: ");
+	      memcpy(p, close, strlen(close));
+	    }
 	  }
 	  
 	  
-	  
 	  // printf("Recieved from server\n%s\n",buf);
-	  tmp = strstr(buf, tmp2);
+	  tmp = strstr(buf, contentType);
 	  if (tmp != NULL){
 	    x = strcspn(tmp, "\n");
 	    if (x > 99) x = 99;
