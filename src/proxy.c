@@ -294,14 +294,15 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
 //index: place in buf to replace
 //deleteLen: chars to write over in buf
 //replaceLen: num chars to write from str
+//returns length of new buffer
 int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int index, unsigned int deleteLen, unsigned int replaceLen)
 {
   char *endBuf = malloc(sizeof(char) * bufstrlen);
   memcpy(endBuf, buf + index + deleteLen, bufstrlen + 1 - index - deleteLen);
   memcpy(buf + index, str, replaceLen);
-  memcpy(buf + index + replaceLen - deleteLen + 1, endBuf, bufstrlen + 1 - index - deleteLen);
+  memcpy(buf + index + replaceLen - deleteLen, endBuf, bufstrlen + 1 - index - deleteLen);
   free(endBuf);
-  return 0;
+  return bufstrlen + replaceLen - deleteLen;
 }
 
 
@@ -335,7 +336,7 @@ int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int ch
   removeChunkFromConnections(chunk, connection);
   //beware of freeing the entire list if concurrent chunks
   freeChunkList(chunk);
-  return 1;
+  return 0;
 }
 
 
@@ -433,7 +434,7 @@ int main(int argc, char* argv[])
     			ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
 
 	  			int x;
-	  			char *vod, *get;
+	  			char *get;
 	  			char *bit = malloc(16);
 	  			char header[100];
 	  			x = strcspn(buf, "\n");
@@ -445,35 +446,31 @@ int main(int argc, char* argv[])
 	 				printf("Received header request from browser:\n%s\n\n", header);
 
           if (ret > 0){
-	    			//Ignore GET requests for /, /StrobeMediaPlayback.swf
-	    			if(((get = strstr(header, "/StrobeMediaPlayback.swf")) != NULL) ||
-	      			((get = strstr(header, "/ ")) != NULL) ||
-	      			((get = strstr(header, " ")) != NULL)){
-								sendResponse(connection->server_sock, buf, ret);
-	    			}
- 
-				    if (1){/*Get request is .f4m, either:
-		 			   1. send request for .f4m, saved it, then send GET ..._nolist.f4m and forward that
-		   			 2. send request for both and decide which one to forward back by parsing*/
-	    			}
+						//GET request for .f4m file
+						//Send GET for ... _nolist.f4m
+				    if ((get = strstr(header, "big_buck_bunny.f4m")) != NULL){
+							stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
+							unsigned int index = strstr(buf, ".f4m") - buf;
+							ret = replaceString(buf, ret, "_nolist", index, 0, strlen("_nolist") );
+							printf("buf:%s\n", buf);
+						}
 
-				    //Get request is for /vod/bitratesegFrag
-	  			  //Modify for current tput and TODO start new chunk
-	    			if ((get = strstr(header, "/vod/")) != NULL){
-							get = strstr(get, "Seg");
+				    //Get request is for /vod/###SegX-FragY
+	  			  //Modify for current tput and start new chunk
+	    			if ((get = strstr(header, "Seg")) != NULL){
 							get = strtok(get, " HTTP"); //get = chunkname (unmodified)
 							int br = getBitrate(stream->current_throughput, stream->available_bitrates); //###
-							printf("tput: %d, br found: %d\n", stream->current_throughput, br);
+							printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
 							snprintf(bit, 16, "%d", br); //convert br into string
 							get = strcat(bit, get); //###SegX-FragY
 							char *chunk = malloc(strlen(get) + strlen("/vod/") + 1);
 							strcpy(chunk, "/vod/");
 							strcat(chunk, get); // /vod/###SegX-FragY 
-
-							//TODO Set to be chunk-name
+							startChunk(connection, chunk);
 	    			}
+						
+						sendResponse(connection->server_sock, buf, ret);
 	  			}
-	  
         }
 	
         if (sock == connection->server_sock){
@@ -491,61 +488,50 @@ int main(int argc, char* argv[])
 				  int x;
 
 				  if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
-				    if ((p = strstr(buf, "Connection: ")) != NULL){
-	   					p = p + strlen("Connection: ");
-				      memcpy(p, close, strlen(close));
-	    			}
-	  			}
+				   		if ((p = strstr(buf, "Connection: ")) != NULL){
+	   						p = p + strlen("Connection: ");
+				     	 memcpy(p, close, strlen(close));
+	    				}
+	  			
 	   
-				  // printf("Received from server\n%s\n",buf);
-	  			// p is a pointer to Content-Type
-				  p = strstr(buf, contentType);
-				  if (p != NULL){
-				    x = strcspn(p, "\n");
-	    			if (x > 99) x = 99;
-				    memcpy(header, p, x);
-				    header[x] = '\0';
-	    			fflush(stdout);
+	  				// p is a pointer to Content-Type
+				  	p = strstr(buf, contentType);
+				  	if (p != NULL){
+				    	x = strcspn(p, "\n");
+	    				if (x > 99) x = 99;
+				    	memcpy(header, p, x);
+				    	header[x] = '\0';
+	    				fflush(stdout);
 
-		    		if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
-							type = type + strlen("Content-Type: ");
-				    }
-
-				    //if video/f4f then we need to get content length
-	   			 if( strstr(type, "video/f4f") != NULL){
-						if ((len = strstr(buf, "Content-Length: ")) != NULL){
-		   				len = len + strlen("Content-Length: ");
-						}
-	    		 }
-
-					 if (strstr(header, "text/xml") != NULL){
-						//TODO iniitialize throughput to be lowest one
-	      		printf("%s\n", buf);
-	    		 }
-	  			}		
+		    			if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
+								type = type + strlen("Content-Type: ");
+								printf("TYPE:%s\n", type);
+				   		}
+	  				}		
 	  
 	  
-          if (ret > 0){
-	    			if (1)
-	      			printf("Received %d:\n%s\n",ret, buf);
-            	sendResponse(connection->browser_sock, buf, ret);
-			    	if(1)/*Content type is one of the following forward untouched:
-					  text/html, application/javascript, application/x-shockwave-flash*/
-	      		{
-		
-	      		}
-	   				if(1)/*Content type is text/html decide what to do based on decision above */
-	      		{
-	      		}
-	    			if(1)/*Content type is video/f4f, get content length to detrmine when the chunk is done?
-		   			measure header length until /n/r/n/r and then subreact that from ret
-		   			to see how much data you got
-		  			and forward*/
-	      		{
-	      		}
-	    			if(1)/*No content length, forward bytes, if == content length, finish chunk */
-						{	}
-	  			}
+         	 if (ret > 0){
+	      				printf("Received %d:\n%s\n",ret, buf);
+							//If text/xml, set tput to be min
+			  	 	 	if( strstr(type, "text/xml") != NULL){
+								stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
+							}
+
+							//measure header length until /n/r/n/r and then 
+							//subtract that from ret to see how much data you got and forward
+							if ( strstr(type, "video/f4f") != NULL){
+								if ((len = strstr(buf, "Content-Length: ")) != NULL){
+									len = len + strlen("Content-Length: ");
+								}
+							}
+		    			if(1)/*No content length, forward bytes, if == content length, finish chunk */
+							{	}
+							sendResponse(connection->browser_sock, buf, ret);
+		  			}
+					}//end of if for http 1.1
+					else{
+						sendResponse(connection->browser_sock, buf, ret);
+					}
         }
 
       }//End else

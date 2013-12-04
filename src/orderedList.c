@@ -39,6 +39,8 @@ int getLowestBitrate(orderedList *list){
 	if(blist->start != NULL){
 		br = blist->start->num;
 	}
+	
+	return br;
 }
 
 // Function to find the best bitrate based on throughput
@@ -49,6 +51,10 @@ int getBitrate(int tput, orderedList *list){
 	//calculate highest bitrate connection can support
 	int maxBR = tput/1.5;
 	int br = 0;
+
+	if(blist->start != NULL){
+		br = blist->start->num;
+	}
 
 	while(blist->start != NULL && blist->start->num <= maxBR){	
 			if(blist->start->num > br){
