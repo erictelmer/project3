@@ -12,8 +12,8 @@ FILE *fp;
 
 		if (list == NULL)
 		{
-				printf("Bitrate List is null");
-				return -1;
+			printf("Bitrate List is null");
+			return -1;
 		}
 
 		fp = fopen("/var/www/vod/big_buck_bunny.f4m", "r");
@@ -23,13 +23,22 @@ FILE *fp;
 			if (strstr(line, "bitrate=")) //found bitrate in a line
 				{
 					num = strchr(line, '"'); //num = "###"
-					num = num + 1;					 //num = ###"
+					num = num + 1;		 //num = ###"
 					num = strtok(num, "\""); //num = ###
-					addNum(list, atoi(num));			 //add bitrate to bitrateList
+					addNum(list, atoi(num)); //add bitrate to bitrateList
 				}
 			}
 
 		return 1;
+}
+
+int getLowestBitrate(orderedList *list){
+	orderedList *blist = list;
+	int br = 0;
+
+	if(blist->start != NULL){
+		br = blist->start->num;
+	}
 }
 
 // Function to find the best bitrate based on throughput

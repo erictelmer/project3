@@ -23,7 +23,8 @@ stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_
 
   memset(new->filename, 0, FILENAMESIZE);
   new->connections = NULL;
-  new->available_bitrates = NULL;
+  new->available_bitrates = newOrderedList();
+  parseXML(new->available_bitrates);
   new->current_throughput = -1;
   
   return new;

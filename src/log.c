@@ -1,10 +1,10 @@
 /******************************************************************************
- *                                                              							*
- *  log.c                                                       							*
+ *                                                       		      *
+ *  log.c                                                       	      *
  *                                                              							*
  *  Description: This file contains the description and methods for						*
- *  						 creating a log file and writing to it with the expected			*
- *  						 format as specified in the handout for Project 3							* *																																						 *
+ *  		 creating a log file and writing to it with the expected			*
+ *  		 format as specified in the handout for Project 3							* *																																						 *
  *																																						*
  *  Code reused and modified from Lauren's Project 1													*
  *                                                              							*
@@ -73,7 +73,7 @@ void log_msg(FILE *log, const char *message, ...){
 
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
-	strftime(buffer, 80, "[%x %X] ", timeinfo);
+	strftime(buffer, 80, "[%x %X]: ", timeinfo);
 
 	fprintf(log, buffer);
 	fflush(log);
@@ -81,6 +81,7 @@ void log_msg(FILE *log, const char *message, ...){
 	va_start(arg_point, message);
 	vfprintf(log, message, arg_point);
 	va_end(arg_point);
+	fflush(log);
 }
 
 void close_log(FILE *log){

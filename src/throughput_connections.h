@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-#include "../orderedList/orderedList.h"
+#include "orderedList.h"
 
 #define FILENAMESIZE 64
 
