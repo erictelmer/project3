@@ -86,11 +86,23 @@ void freeIps(ip_s *ips){
   }
 }
 
-int getIpsFromFile(char *filename, ip_s *ips){
+//get Ip by num, starting at 1
+ip_s *getIpNum(ip_s *ips, int num){
+  int x = 1;
+  while((ips != NULL) && (x != num)){
+    ips = ips->next;
+    x++;
+  }
+  return ips;
+}
+
+int getIpsFromFile(char *filename, ip_s *ips, int *numIps){
   FILE *file;
   char line[IPLEN];
   int readbytes;
   ip_s *prev = ips;
+
+  *numIps = 0;
 
   if ((filename == NULL) || (ips==NULL)){
     printf("Recieved NULL\n");
@@ -105,6 +117,9 @@ int getIpsFromFile(char *filename, ip_s *ips){
   
   while(fgets(line, sizeof(line), file) != NULL)
     {
+      *numIps = *numIps + 1;
+      //remove \n
+      line[strlen(line) - 1] = '\0';
       strncpy(ips->ipstr, line, IPLEN);
       if (ips->next == NULL)
 	ips->next = newIp_s();
@@ -137,6 +152,9 @@ int main(int argc, char * argv[])
 
   ip_s *ips = newIp_s();
   command_line_s commandLine;
+
+  int numIps;
+  int roundRobin = 1;
   /*if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
   if(getIpsFromFile(commandLine.servers, ips) < 0)
@@ -144,6 +162,11 @@ int main(int argc, char * argv[])
   
   addrlen = sizeof(addr);
   FD_ZERO(&readfds);
+  parseCommandLine(argc, argv, &commandLine);
+  getIpsFromFile(commandLine.servers, ips, &numIps);
+
+  printf("Ip1: %s\n", ips->ipstr);
+  printf("Ip2: %s\n", ips->next->ipstr);
 
   if ((sizeof(int) != 4) || (sizeof(short) != 2) || (sizeof(void*) != 8)){
     printf("Unexpected sizes...UHOH\n");
@@ -154,23 +177,31 @@ int main(int argc, char * argv[])
     exit(4);
   }
 
+  char myipstr[IPLEN];
+
   bzero(&addr, addrlen);
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(9000);
+  addr.sin_port = htons(commandLine.port);
+  inet_pton(AF_INET, commandLine.ipstr, &addr.sin_addr);
+
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  inet_ntop(AF_INET, &addr.sin_addr, myipstr, 36);
+  printf("Ip: %s\n", myipstr);
+  printf("Port: %d\n", ntohs(addr.sin_port));
 
   if(bind(listener, (struct sockaddr *)&addr, addrlen) < 0){
     perror("bind");
     exit(4);
   }
 
-  //printf("Server Initiated\nBound2: %s\n%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+  //printf("Server Initiated\nBound2: %s\n%d\n", inet_ntop(addr.sin_addr), ntohs(addr.sin_port));
   //flush(stdout);
 
   while(1) {
     
     FD_SET(listener, &readfds);
-    tv.tv_sec = 2;
+    tv.tv_sec = 20;
 
     nfds = select(listener+1, &readfds, NULL, NULL, &tv);
     if (nfds == 0){
@@ -185,6 +216,54 @@ int main(int argc, char * argv[])
 
     if (readret > 0){
       printf("\nRecieved:\n%s", buf);
+      unsigned short ID = getID(buf);
+      char *question;
+      char *resource;
+      char ipstr[IPLEN];
+      ip_s *iptosend;
+      char ipbits[4];
+      unsigned short RDLENGTH = 4;
+      unsigned char RCODE = 0;
+      unsigned int sendlen = 0;
+      question = getEndOfHeader(buf);
+      if (getQR(buf) != 0){
+	//send RCODE 3?
+	continue;
+      }
+      else if (!isVideoCsCmuEdu(question)){
+	//send RCODE 3?
+	RCODE = 3;
+	memset(buf, 0, BUFLEN);
+	fillResponseHeaderTemplate(buf);
+	putID(buf, ID);
+	putANCOUNT(buf, 0);
+	putRCODE(buf, RCODE);
+	//continue;
+      }
+      else{
+	//Check OPCODE?
+	//Check QDCOUNT?
+
+	//ROUND ROBIN
+	//roundRobin > 0
+	iptosend = getIpNum(ips, roundRobin);
+	roundRobin++;
+	if (roundRobin > numIps)
+	  roundRobin = 1;
+	inet_pton(AF_INET, iptosend->ipstr, ipbits);
+	
+	memset(buf, 0, BUFLEN);
+	fillResponseHeaderTemplate(buf);
+	putID(buf, ID);
+	//putRCODE
+	resource = getEndOfHeader(buf);
+	fillResourceRecordTemplate(resource);
+	putRDLENGTH(resource, RDLENGTH);
+	putRDATA(resource, ipbits, RDLENGTH);
+	sendlen = getEndOfResource(resource) - buf;
+      }
+      sendto(listener, buf, sendlen, 0, (const struct sockaddr *)&from, addrlen);
+      //SEND
     }
 
   }

@@ -1,8 +1,16 @@
-#include "dnsMessaging.h"
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <signal.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/types.h>
 
-
-char cmuName[18] = {0x05, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x02, 0x63, 0x73, 0x03, 0x63, 0x6d, 0x75, 0x03, 0x65, 0x64, 0x75, 0x00};
-
+#define GETNAMELEN(x) return ((unsigned char*)x)[0] + 2;
 
 //01 ff 02 ff ff 00
 //namelen = 1
@@ -28,24 +36,13 @@ void putID(char *message, unsigned short ID){
   ((unsigned short *)(message))[0] = ID;
 }
 
-unsigned short getID(char *message){
-  return ((unsigned short *)message)[0];
-}
 //1 b
 void putQR(char *message, unsigned char QR){
-  message[2] = (message[2] && 0x7f) || ((QR && 0x01) << 7);
-}
-
-unsigned char getQR(char *message){
-  return (message[2] && 0x80) >> 7;
+  message[2] = (message[2] && 0x7f) || ((QR && 0x0f) << 7);
 }
 
 void putOPCODE(char *message, unsigned char OPCODE){
   message[2] = (message[2] && 0x87) || ((OPCODE && 0x0f) << 3);
-}
-
-unsigned char getOPCODE(char *message){
-  return (message[2] && 0x78) >> 3;
 }
 
 void putAA(char *message, unsigned char AA){
@@ -68,28 +65,16 @@ void putZ(char*message,unsigned char Z){
   message[3] = (message[3] && 0x8f) || ((Z && 0x07)<<4);
 }
 
-void putRCODE(char*message,unsigned char RCODE){
-  message[3] = (message[3] && 0xf0) || ((RCODE && 0x0f));
-}
-
-unsigned char getRCODE(char *message){
-  return (message[3] && 0x0f);
+void putRDCODE(char*message,unsigned char RDCODE){
+  message[3] = (message[3] && 0xf0) || ((RDCODE && 0x0f));
 }
 
 void putQDCOUNT(char *message, unsigned short QDCOUNT){
   *(unsigned short *)(message + 4) = QDCOUNT;
 }
 
-unsigned short getQDCOUNT(char *message){
-  return *(unsigned short *)(message + 4);
-}
-
 void putANCOUNT(char *message, unsigned short ANCOUNT){
   *(unsigned short *)(message + 6) = ANCOUNT;
-}
-
-unsigned short getANCOUNT(char *message){
-  return *(unsigned short *)(message + 6);
 }
 
 void putNSCOUNT(char *message, unsigned short NSCOUNT){
@@ -101,9 +86,11 @@ void putARCOUNT(char *message, unsigned short ARCOUNT){
 }
 
 //Question section format
-//Hard coded for CMU
-void putQNAME(char *question){
-  memcpy(question, cmuName, 18);
+
+void putQNAME(char *question, unsigned char length, unsigned char *name){
+  question[0] = length;
+  memcpy(question + 1, name, length);
+  question[length + 1] = 0;
 }
 
 void putQTYPE(char *question, unsigned short QTYPE){
@@ -122,9 +109,11 @@ char *getEndOfQuestion(char *question){
 }
 
 //Resource Record format
-//Hard coded for CMU
-void putNAME(char *resource){
-  memcpy(resource, cmuName, 18);
+
+void putNAME(char *resource, unsigned char length, unsigned char *NAME){
+  resource[0] = length;
+  memcpy(resource + 1, NAME, length);
+  resource[length + 1] = 0;
 }
 
 void putTYPE(char *resource, unsigned short TYPE){
@@ -160,46 +149,27 @@ char *getEndOfResource(char *resource){
 
 void fillRequestHeaderTemplate(char *header){
   memset(header, 0, 12);
-  putQR(header, 0);
   putAA(header, 0);
   putRD(header, 0);
   putRA(header, 0);
   putZ(header, 0);
-  putQDCOUNT(header,1);
   putNSCOUNT(header,0);
   putARCOUNT(header,0);
 }
 
-void fillResponseHeaderTemplate(char *header){
-  memset(header, 0, 12);
-  putQR(header, 1);
-  putAA(header, 1);
-  putRD(header, 0);
-  putRA(header, 0);
-  putZ(header, 0);
-  putANCOUNT(header, 1);
-  putNSCOUNT(header,0);
-  putARCOUNT(header,0);
-}
-
-
-
-//NAME
 void fillQuestionTemplate(char *question){
-  putQNAME(question);
   putQTYPE(question,1);
   putQCLASS(question,1);
 }
 
-//NAME
 void fillResourceRecordTemplate(char *resource){
-  putNAME(resource);
   putTYPE(resource,1);
   putCLASS(resource,1);
-  putTTL(resource,0);
+  putTTL(resource,1);
 }
 
 int isVideoCsCmuEdu(char *name){
+  char cmuName[18] = {0x05, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x02, 0x63, 0x73, 0x03, 0x63, 0x6d, 0x75, 0x03, 0x65, 0x64, 0x75, 0x00};//encoding for video.cs.cmu.edu...trust me!
   if (memcmp(name, cmuName, 18))
     return 1;
   return 0;
