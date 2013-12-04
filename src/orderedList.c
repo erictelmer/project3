@@ -8,7 +8,7 @@
 #include "orderedList.h"
 
 int parseXML(orderedList *list){
-FILE *fp;
+		FILE *fp;
 
 		if (list == NULL)
 		{
@@ -32,19 +32,6 @@ FILE *fp;
 		return 1;
 }
 
-int getLowestBitrate(orderedList *list){
-	orderedList *blist = list;
-	int br = 0;
-
-	if(blist->start != NULL){
-		br = blist->start->num;
-	}
-	
-	return br;
-}
-
-// Function to find the best bitrate based on throughput
-// Takes in the bitrateList and calculated throughput
 int getBitrate(int tput, orderedList *list){
 
 	orderedNode *bnode = list->start;
@@ -61,7 +48,6 @@ int getBitrate(int tput, orderedList *list){
 	return bnode->num;
 
 }
-
 
 int getTimeoutPacket(uploadList *list, double secs){
 

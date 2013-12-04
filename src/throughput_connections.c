@@ -1,3 +1,11 @@
+/******************************************************************************
+ *                                                                            *
+ *  throughput_connections.c                                                  *
+ *                                                                            *
+ *  Description: This file contains the description and methods for           *
+ *       creating a throughput_connection on the proxy.                       *
+ *                                                                            *
+ *****************************************************************************/
 #include <assert.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -202,7 +210,6 @@ void removeConnectionFromStream(connection_list_s *connectionList, stream_s *str
   return;
 }
 
-
 connection_list_s *getConnectionFromSocket(stream_s *stream, int sock){
   CHK_NULLR(stream,"getConnecfrmS:s"); CHK_NULLR(stream->connections,"getConnecFrmS:c");
 
@@ -216,5 +223,3 @@ connection_list_s *getConnectionFromSocket(stream_s *stream, int sock){
   return curr;
 
 }
-
-

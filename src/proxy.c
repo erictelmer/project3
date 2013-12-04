@@ -1,5 +1,5 @@
 /******************************************************************************
-* proxy.ci			                                                              *
+* proxy.c				                                                              *
 *                                                                             *
 * Description: This file contains the C source code for 											*
 * 						 a video streaming proxy  																		  *
@@ -14,7 +14,6 @@
 static FILE *log, *p_log, *dns_log;
 int port_offset;
 
-
 int close_socket(int sock){
   if (close(sock)){
     log_msg(log, "Failed closing socket..\n");
@@ -28,10 +27,6 @@ void sigINThandler(int sig){
 	exit(1);
 }
 
-void leave(void){
-  //endLogger();
-}
-
 void * Malloc(size_t size, char *name){
   void *loc;
   loc = malloc(size);
@@ -39,7 +34,6 @@ void * Malloc(size_t size, char *name){
     log_msg(log, "Error: Malloc on %s\n", name);
     exit(3);
   }
-  // printf("Mallocing %s of size: %x @ %p\n", name, (unsigned int)size, loc);
   return loc;
 }
 
@@ -50,7 +44,6 @@ void * Realloc(void *pointer, size_t size, char *name){
     log_msg(log, "Error: Realloc on %s\n", name);
     exit(3);
   }
-  //  printf("Reallocing %s @ %p of size: %x @ %p\n", name,pointer, (unsigned int)size, loc);
   return loc;
 }
 
@@ -94,7 +87,6 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   addr_size = sizeof(browser_addr);
 
   log_msg(log, "Attempting to accept connection\n");
-  //  Log(p_log,"Attempting to accept connection\n");
 
   if(*stream == NULL){//new stream!
     memcpy(&client_addr.sin_addr, &commandLine->fake_ip, sizeof(struct in_addr));
@@ -138,7 +130,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
                             &addr_size)) == -1)
     {
       close(browserListener);
-      //      logString("Error accepting connection.");
+      log_msg(log, "Error accepting connection.");
       return EXIT_FAILURE;
     }
   
@@ -161,29 +153,23 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   }
 
   inet_ntop(AF_INET, (void *)(&(browser_addr.sin_addr)), str, 50);
-  //  logString("Accepted connection from %s", str);
+  log_msg(log, "Accepted connection from %s", str);
   return 0;
 }
 
-//returns bytes read
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream){
   int readret;
   int i;
   if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0)//Check if connection closed
     {
-      /*if (!FD_ISSET(fd, &write_fds)) {
-        memset(*buf,0, BUF_SIZE);
-        //        logString("Could not write");
-        return -2;
-        }*/
       //Http handling//
       
-        //logString("Read data from fd:%d", fd);
+      log_msg(log, "Read data from fd:%d", fd);
       return readret;
     } 
  
   if (readret <= 0){//If connection closed
-    //    logString("Connection closed on fd:%d",fd);
+    log_msg(log, "Connection closed on fd:%d",fd);
     close_socket(connection->server_sock);
     close_socket(connection->browser_sock);
     FD_CLR(connection->server_sock, master);
@@ -199,8 +185,6 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
         log_msg(log, "FD_SET: %d", i);
       }
     }
-
-
     //change fdmax
   }
   return -1;
@@ -213,10 +197,10 @@ int sendResponse(int fd, char * response, int responselen){
       close_socket(fd);
       close_socket(3);
       printf("Send Failed\n");
-      //     logString("Error sending to client.");
+      log_msg(log, "Error sending to client.");
       return EXIT_FAILURE;
     }
-  //  logString("Sent response to fd:%d", fd);
+  log_msg(log, "Sent response to fd:%d", fd);
   return 0;
 }
 
@@ -225,7 +209,7 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   struct sockaddr_in addr;
   
   if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1){
-    //      logString("Failed creating socket.");
+    log_msg(log, "Failed creating socket.");
     return -1;
   }
 
@@ -233,18 +217,18 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = INADDR_ANY;
  
-//  printf("Binding to port:%d\n", port);
+  log_msg(log, "Binding to port:%d\n", port);
  
   /* servers bind sockets to ports---notify the OS they accept connections */
   if (bind(listener, (struct sockaddr *) &addr, sizeof(addr))){
     close_socket(listener);
-    //     logString("Failed binding socket.");
+    log_msg(log, "Failed binding socket.");
     return -1;
   }
   
   if (listen(listener, 5)){
     close_socket(listener);
-    //     logString("Error listening on socket.");
+    log_msg(log, "Error listening on socket.");
     return -1;
   }
 
@@ -252,12 +236,6 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   return 0;
 }
 
-//bufstrlen length of string in buf
-//str string to insert into buf
-//index: place in buf to replace
-//deleteLen: chars to write over in buf
-//replaceLen: num chars to write from str
-//returns length of new buffer
 int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int index, unsigned int deleteLen, unsigned int replaceLen)
 {
   char *endBuf = malloc(sizeof(char) * bufstrlen);
@@ -268,8 +246,6 @@ int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int ind
   return bufstrlen + replaceLen - deleteLen;
 }
 
-
-//Call before sending request
 int startChunk(connection_list_s *connection, char *chunkName){
   //Check for NULL
   chunk_list_s *chunk = newChunkList();
@@ -286,7 +262,6 @@ int startChunk(connection_list_s *connection, char *chunkName){
   return 0;
 }
 
-//assuming only 1 chunk active at once
 int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s commandLine){
   chunk_list_s *chunk = connection->chunk_throughputs;
   double duration;
@@ -300,11 +275,7 @@ int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s 
 
   throughput = (chunk->chunk_size / duration) * (8.0 / 1000);
 
-	printf("throughput: %d\n", throughput);
-
   stream->current_throughput = (throughput * alpha) + ((1.0 - alpha) * stream->current_throughput); 
-
-	printf("avg tput: %d\n", stream->current_throughput);
 
   //Log to proxy_log in correct format
   char *ser = inet_ntoa(commandLine.www_ip);
@@ -315,7 +286,6 @@ int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s 
   free(chunk);
   return 0;
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -335,9 +305,6 @@ int main(int argc, char* argv[])
   
   char buf[BUF_SIZE];
   int ret;
-  int responselen = 200;
-  char * response;
-
   int sockcont=0;
 
   port_offset = 0;

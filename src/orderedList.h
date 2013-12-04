@@ -60,13 +60,6 @@ typedef struct upL
 //
 int parseXML(orderedList *list);
 
-// getLowestBitrate: function to find the lowest bitrate
-// Parameters:
-// 	orderedList *list: bitrate list
-// Returns:
-// 	int: lowest bitrate
-int getLowestBitrate(orderedList *list);
-
 // 
 // getBitrate: function to find the best bitrate based on throughput
 // Parameters:
