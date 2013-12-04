@@ -23,7 +23,8 @@ stream_s *newStream(struct sockaddr_in *client_addr, struct sockaddr_in *server_
 
   memset(new->filename, 0, FILENAMESIZE);
   new->connections = NULL;
-  new->available_bitrates = NULL;
+  new->available_bitrates = newOrderedList();
+  parseXML(new->available_bitrates);
   new->current_throughput = -1;
   
   return new;
@@ -142,8 +143,9 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
   CHK_NULL(chunkList, "rmChnk:ch"); CHK_NULL(connectionList,"rmChnk:con");
   
   chunk_list_s *curr;
+	connectionList->chunk_throughputs = NULL;
 
-  if (connectionList->chunk_throughputs == NULL){//no chunks in list
+/*  if (connectionList->chunk_throughputs == NULL){//no chunks in list
     return;
   } 
   
@@ -165,7 +167,7 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
   if(curr->next == chunkList){
     curr->next = curr->next->next;
   }
-  
+  */
   return;
 }
 

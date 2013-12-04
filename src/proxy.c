@@ -1,49 +1,15 @@
 /******************************************************************************
-* proxy.c                                                               *
+* proxy.ci			                                                              *
 *                                                                             *
-* Description: This file contains the C source code for a video streaming proxy                                          *
+* Description: This file contains the C source code for 											*
+* 						 a video streaming proxy  																		  *
 *                                                                             *
 * Authors:Eric Telmer <eit@andrew.cmu.edu>                                    *
+* 				Lauren Milisits <lvm@andrew.cmu.edu>																*
 *                                                                             *
 *******************************************************************************/
 
 #include "proxy.h"
-
-/* 
-
-Everything commented out below is in the proxy.h file
-proxy.c should still compile
-To be removed before final submission
-
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#include "proxy.h"
-
-#include <openssl/rsa.h>
-#include <openssl/crypto.h>
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-
-#include "log.h"
-#include "generateResponse.h"
-
-
-#define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
-#define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
-#define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
-#define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
-*/
 
 static FILE *log, *p_log, *dns_log;
 int port_offset;
@@ -59,6 +25,7 @@ int close_socket(int sock){
 
 void sigINThandler(int sig){
 	close_socket(3);
+	exit(1);
 }
 
 void leave(void){
@@ -93,7 +60,6 @@ int waitForAction(fd_set *master, fd_set *read_fds, int fdmax, struct timeval tv
 
   *read_fds = *master; // copy it
 
-
   tv.tv_sec = 60;
   i = select(fdmax+1, read_fds, NULL, NULL, &tv);
   if (i == -1) {
@@ -127,7 +93,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   char str[50];
   addr_size = sizeof(browser_addr);
 
-  printf("Attempting to accept connection\n");
+  log_msg(log, "Attempting to accept connection\n");
   //  Log(p_log,"Attempting to accept connection\n");
 
   if(*stream == NULL){//new stream!
@@ -158,14 +124,14 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   if (bind(server_sock, (struct sockaddr*)&client_addr, addr_size) < 0) {
     char tmp[80];
     inet_ntop(AF_INET, &client_addr.sin_addr, tmp, 80);
-    printf("Socket: %d\nBind addr: %s\nport: %d\n", server_sock, tmp, ntohs(client_addr.sin_port)); 
-    printf("Bind failed\n");
+    log_msg(log, "Socket: %d\nBind addr: %s\nport: %d\n", server_sock, tmp, ntohs(client_addr.sin_port)); 
+    log_msg(log, "Bind failed\n");
     perror("bind"); 
     exit(EXIT_FAILURE);
-    
   }
 
-  if (connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size)) printf("Connect failed\n");
+  if (connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size))
+		log_msg(log, "Connect failed\n");
 
   //accept new socket to browser
   if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
@@ -179,7 +145,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   //create new connection adn add it to stream
   connection = newConnection(browser_sock, server_sock);
   addConnectionToStream(connection, *stream);
-  printf("Added connections on seckets b:%d,s:%d\n",connection->browser_sock, connection->server_sock); 
+  log_msg(log, "Added connections on sockets b:%d,s:%d\n",connection->browser_sock, connection->server_sock); 
 
 
   //Add socket to browser to fdset
@@ -203,7 +169,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream){
   int readret;
   int i;
-  if ((readret = recv(fd, *buf, 1, MSG_PEEK)) > 0)//Check if connection closed
+  if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0)//Check if connection closed
     {
       /*if (!FD_ISSET(fd, &write_fds)) {
         memset(*buf,0, BUF_SIZE);
@@ -211,12 +177,9 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
         return -2;
         }*/
       //Http handling//
-      if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0){
+      
         //logString("Read data from fd:%d", fd);
-        return readret;
-      }
-      //End gttp handling//
-      memset(*buf,0,BUF_SIZE);
+      return readret;
     } 
  
   if (readret <= 0){//If connection closed
@@ -226,18 +189,17 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
     FD_CLR(connection->server_sock, master);
     FD_CLR(connection->browser_sock, master);
 
-    printf("Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
+    log_msg(log, "Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
 
     removeConnectionFromStream(connection, stream);
     freeConnection(connection);
 
-    printf("FDSET: ");
     for(i=0; i<=*fdmax; i++){
       if(FD_ISSET(i, master)){
-        printf(", %d", i);
+        log_msg(log, "FD_SET: %d", i);
       }
     }
-    printf("\n");
+
 
     //change fdmax
   }
@@ -262,31 +224,30 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   int listener;
   struct sockaddr_in addr;
   
-  if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1)
-    {
-      //      logString("Failed creating socket.");
-      return -1;
-    }
+  if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1){
+    //      logString("Failed creating socket.");
+    return -1;
+  }
+
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = INADDR_ANY;
  
-  printf("Binding to port:%d\n", port);
+//  printf("Binding to port:%d\n", port);
  
   /* servers bind sockets to ports---notify the OS they accept connections */
-  if (bind(listener, (struct sockaddr *) &addr, sizeof(addr)))
-    {
-      close_socket(listener);
-      //     logString("Failed binding socket.");
-      return -1;
-    }
+  if (bind(listener, (struct sockaddr *) &addr, sizeof(addr))){
+    close_socket(listener);
+    //     logString("Failed binding socket.");
+    return -1;
+  }
   
-  if (listen(listener, 5))
-    {
-      close_socket(listener);
-      //     logString("Error listening on socket.");
-      return -1;
-    }
+  if (listen(listener, 5)){
+    close_socket(listener);
+    //     logString("Error listening on socket.");
+    return -1;
+  }
+
   *plistener = listener;
   return 0;
 }
@@ -296,14 +257,15 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
 //index: place in buf to replace
 //deleteLen: chars to write over in buf
 //replaceLen: num chars to write from str
+//returns length of new buffer
 int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int index, unsigned int deleteLen, unsigned int replaceLen)
 {
   char *endBuf = malloc(sizeof(char) * bufstrlen);
   memcpy(endBuf, buf + index + deleteLen, bufstrlen + 1 - index - deleteLen);
   memcpy(buf + index, str, replaceLen);
-  memcpy(buf + index + replaceLen - deleteLen + 1, endBuf, bufstrlen + 1 - index - deleteLen);
+  memcpy(buf + index + replaceLen /*- deleteLen*/, endBuf, bufstrlen + 1 - index - deleteLen);
   free(endBuf);
-  return 0;
+  return bufstrlen + replaceLen - deleteLen;
 }
 
 
@@ -312,8 +274,12 @@ int startChunk(connection_list_s *connection, char *chunkName){
   //Check for NULL
   chunk_list_s *chunk = newChunkList();
   addChunkToConnections(chunk, connection);
-
+	chunk->bytesLeft = 0;
   //+1 to include NULL char
+  if (strlen(chunkName) + 1 > 64){
+		printf("Chunk name too big\n");
+		exit(4);
+	}
   memcpy(chunk->chunk_name, chunkName, strlen(chunkName) + 1);
 
   time(&chunk->time_started);
@@ -321,20 +287,25 @@ int startChunk(connection_list_s *connection, char *chunkName){
 }
 
 //assuming only 1 chunk active at once
-int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int chunkSize){
+int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s commandLine){
   chunk_list_s *chunk = connection->chunk_throughputs;
   double duration;
   double throughput;
   float alpha = stream->alpha;
+
   time(&chunk->time_finished);
   duration = difftime(chunk->time_finished, chunk->time_started);
-  throughput = (chunkSize / duration) * (8.0 / 1000);
-  stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
-  //log
+  throughput = (chunk->chunk_size / duration) * (8.0 / 1000);
+  stream->current_throughput = (throughput * alpha) + ((1.0 - alpha) * stream->current_throughput); 
+
+  //Log to proxy_log in correct format
+  char *ser = inet_ntoa(commandLine.www_ip);
+  log_proxy(p_log, chunk, stream, ser);
+
   removeChunkFromConnections(chunk, connection);
   //beware of freeing the entire list if concurrent chunks
-  freeChunkList(chunk);
-  return 1;
+  free(chunk);
+  return 0;
 }
 
 
@@ -367,17 +338,17 @@ int main(int argc, char* argv[])
   if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
 
-  //  p_log = open_log(p_log, "parserLog.txt");
-  //  initLogger(commandLine->logfile);
+  log = open_log(log, "error.log");
+  log_msg(log, "Created log file\n");
 
-
-
+  p_log = open_log(p_log, commandLine.logfile);
+  
   tv.tv_sec = 60;
   tv.tv_usec = 0;
   FD_ZERO(&master);
   FD_ZERO(&read_fds);
 
-  //  logString("Server Initiated");
+  log_msg(log, "Server initiated");
   
   /* set up socket to listen for incoming connections from the browser*/
   if (setupBrowserListenerSocket(&browserListener, commandLine.listen_port) < 0)
@@ -387,147 +358,186 @@ int main(int argc, char* argv[])
   FD_SET(browserListener, &master);
   fdmax = browserListener;
 
-  printf("Browser listener: %d\n", browserListener);
+  log_msg(log, "Browser listener: %d\n", browserListener);
   
   tv.tv_sec = 60;
   while (1)
     {
       //wait for a socket to have data to read
       sock = waitForAction(&master,&read_fds, fdmax, tv, sockcont);/*blocking*/
-      if (sock <0) continue;//select timeout
+      if (sock < 0) continue;//select timeout
       if (sock == 0){//read through read_fs , start from beginning
         sockcont = 0;
         continue;
       }
+
       sockcont = sock + 1;
       
-      
+      log_msg(log, "Browser requesting a new connection\n");
       //Browser is requesting new connection
       if (sock == browserListener){ //new connection        
         if (stream == NULL){
-         
+				  log_msg(log, "Stream is null\n");
         }
+
         if (acceptBrowserServerConnectionToStream(browserListener, &master, &fdmax, &stream, &commandLine) < 0)//add connection to stream
           //add browser sock to read_fs
           return EXIT_FAILURE;
-        //if no current streams 
-        
+        //if no current streams   
       }
 
       else {
+				log_msg(log, "Determining if connection is from browser or server...\n");
         //Determine if coming from browser or server
         connection =  getConnectionFromSocket(stream, sock);
 
         if (connection == NULL){
-          printf("NULL connec\n");
+          log_msg(log, "Error: NULL connection\n EXIT_FAILURE\n");
           return EXIT_FAILURE;
         }
 
         if (sock == connection->browser_sock){
-	  memset(buf, 0, BUF_SIZE);
-          ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
+	  			log_msg(log, "Found a browser connection\n");
 
-	  int x;
-	  char header[100];
-	  x = strcspn(buf, "\n");
-	  if (x > 99) x = 99;
-	  memcpy(header, buf, x);
-	  header[x] = '\0';
-	  printf("Recieved  request from browser:\n%s\n\n", header);
+				  memset(buf, 0, BUF_SIZE);
+    			ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
+
+	  			int x;
+	  			char *get;
+	  			char bit[16];
+	  			char header[100];
+	  			x = strcspn(buf, "\n");
+				  if (x > 99) x = 99;
+				  memcpy(header, buf, x);
+				  header[x] = '\0';
+
+	  			log_msg(log, "Received request from browser:\n%s\n\n", header);
+//	 				printf("Received header request from browser:\n%s\n\n", header);
+
           if (ret > 0){
-	    if (1){//Get request is /, /swfobject.js, /strobeMediaPlayback forward unchanged
-	      if (1)
-		printf("Recieved from browswer\n%s\n", buf); 
-	      sendResponse(connection->server_sock, buf, ret);
-	    }
-	    if (1)/*Get request is .f4m, either:
-		    1. send request for .f4m, saved it, then send GET ..._nolist.f4m and forward that
-		    2. send request for both and decide which one to forward back by parsing*/{
-	    }
-	    if (1)/*Get request is for /vod/bitratesegFrag modify it for current throughput
-		    and start a new chunk*/
-	      {
-		
-	      }
-	  }
-	  
+						//GET request for .f4m file
+						//Send GET for ... _nolist.f4m
+				    if ((get = strstr(header, "big_buck_bunny.f4m")) != NULL){
+							stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
+							unsigned int index = strstr(buf, ".f4m") - buf;
+							ret = replaceString(buf, ret, "_nolist", index, 0, strlen("_nolist") );
+	//						printf("buf:%s\n", buf);
+						}
+
+				    //Get request is for /vod/###SegX-FragY
+	  			  //Modify for current tput and start new chunk
+	    			if ((get = strstr(header, "Seg")) != NULL){
+
+							// /vod/###SegX-FragY
+							char *chunkName;
+							char chunk[64];
+							chunkName = strstr(buf, "/vod/");
+							int intLen =  strstr(buf, "Seg") - (chunkName + strlen("/vod/"));
+
+							unsigned int index = 0;
+							int br = getBitrate(stream->current_throughput, stream->available_bitrates); //###
+		//					printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
+							snprintf(bit, 16, "%d", br); //convert br into string
+
+							ret = replaceString(chunkName + strlen("/vod/"), ret, bit, index, intLen, strlen(bit));
+							memcpy(chunk, chunkName, strstr(buf, " HTTP") - chunkName);
+							chunk[strstr(buf, " HTTP") - chunkName] = '\0';
+
+			//				printf("Chunkname sent to start chunk: %s\n", chunk); 
+							startChunk(connection, chunk);
+						}
+						sendResponse(connection->server_sock, buf, ret);
+	  			}
         }
 	
         if (sock == connection->server_sock){
-	  memset(buf, 0,BUF_SIZE);
+				  log_msg(log, "Received request from server\n");
+
+	  			memset(buf, 0, BUF_SIZE);
           ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-	  
+				  //Use close to avoid streamlining 
+	  			char *p, *type, *len, *hlen;
+	  			char close[] = "close     ";
+	  			char contentType[] = "Content-Type: ";
+				  char header[100];
+				  memset(header, '\0', 100);
+				  int x, contentLength;
 
-	  //Use close to avoid streamlining 
-	  char *p, *type, *len;
-	  char close[] = "close     ";
-	  char contentType[] = "Content-Type: ";
-	  char header[100];
-	  memset(header, '\0', 100);
-	  int x;
-	  if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
-	    if ((p = strstr(buf, "Connection: ")) != NULL){
-	      p = p + strlen("Connection: ");
-	      memcpy(p, close, strlen(close));
-	    }
-	  }
-	  
-	  
-	  // printf("Recieved from server\n%s\n",buf);
-	  // p is a pointer to Content-Type
-	  p = strstr(buf, contentType);
-	  if (p != NULL){
-	    x = strcspn(p, "\n");
-	    if (x > 99) x = 99;
-	    memcpy(header, p, x);
-	    header[x] = '\0';
-	    fflush(stdout);
+					if (ret <= 0) {
+				//		printf("Continuing!\n");
+						continue;
+					}
 
-	    if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
-		type = type + strlen("Content-Type: ");
-	    }
+					if (strstr(buf, "Not Modified") != NULL){
+						exit(4);
+					}
 
-	    //if video/f4f then we need to get content length
-	    if( strstr(type, "video/f4f") != NULL){
-		if ((len = strstr(buf, "Content-Length: ")) != NULL){
-		   len = len + strlen("Content-Length: ");
-		}
-	    }
+					if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
+			//			printf("Is HTTP\n");
+						if ((p = strstr(buf, "Connection: ")) != NULL){
+	   					p = p + strlen("Connection: ");
+				     	memcpy(p, close, strlen(close));
+	    			}	
+	   
+	  				// p is a pointer to Content-Type
+				  	p = strstr(buf, contentType);
+				  	if (p != NULL){
+				    	x = strcspn(p, "\n");
+	    				if (x > 99) x = 99;
+				    	memcpy(header, p, x);
+				    	header[x] = '\0';
+	    				fflush(stdout);
 
-	    if (strstr(header, "text/xml") != NULL){
-		//iniitialize throughput to be lowest one
-	      printf("%s\n", buf);
-	    }
-	  }
-	  
-	  
-          if (ret > 0){
-	    if (1)
-	      printf("Recieved %d:\n%s\n",ret, buf);
-            sendResponse(connection->browser_sock, buf, ret);
-	    if(1)/*Content type is one of the following forward untouched:
-		  text/html, application/javascript, application/x-shockwave-flash*/
-	      {
-		
-	      }
-	    if(1)/*Content type is text/html decide what to do based on decision above */
-	      {
-	      }
-	    if(1)/*Content type is video/f4f, get content length to detrmine when the chunk is done?
-		   measure header length until /n/r/n/r and then subreact that from ret
-		   to see how much data you got
-		  and forward*/
-	      {
-	      }
-	    if(1)/*No content length, forward bytes, if == content length, finish chunk */
-	      {
-	      }
-	  }
-	}
-	
-      }//End else
-    }//End while(1)
-  
+		    			if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
+								type = type + strlen("Content-Type: ");
+				   		}
+	  				}		
+	 
+		//				printf("TYPE:%s\n", type); 	  
+         	 	if (ret > 0){
+	  //    			printf("Received %d:\n%s\n",ret, buf);
+							//If text/xml, set tput to be min
+			  	 	 	if( strstr(type, "text/xml") != NULL){
+								stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
+							}
+
+							//measure header length until /n/r/n/r and then 
+							//subtract that from ret to see how much data you got and forward
+							if ( strstr(type, "video/f4f") != NULL){
+								if ((len = strstr(buf, "Content-Length: ")) != NULL){
+									len = len + strlen("Content-Length: ");
+									contentLength = atoi(len);
+									connection->chunk_throughputs->chunk_size = contentLength;
+									if ((hlen = strstr(buf, "\r\n\r\n")) != NULL){
+										hlen = hlen + strlen("\n\r\n\r");
+										unsigned int h = hlen - buf;
+										unsigned int bytesRead = ret - h;
+		//								printf("bytesRead: %d\nbytesTotal: %d\n", bytesRead, contentLength);
+										connection->chunk_throughputs->bytesLeft = contentLength - bytesRead;
+									}
+								}
+							}
+							sendResponse(connection->browser_sock, buf, ret);
+		  			}
+					} // end IF "HTTP/1.1"
+					else{ // still reading same request chunk
+	//					printf("Reading video data\nBuf:\n%s\nRet: %d\n", buf, ret);
+	//					printf("Chunk throughputs: %p\n", connection->chunk_throughputs);
+						if(connection->chunk_throughputs != NULL){
+							connection->chunk_throughputs->bytesLeft = connection->chunk_throughputs->bytesLeft - ret;
+							if (connection->chunk_throughputs->bytesLeft == 0){
+	//							printf("***FINISHING CHUNK***\n");
+								finishChunk(stream, connection, commandLine);
+	//							printf("BYE\n");
+							}
+						}					
+						sendResponse(connection->browser_sock, buf, ret);
+					}
+        }//end server sock
+
+      } // end ELSE
+    } // end WHILE(1)
+
   close_socket(browserListener);
       //endLogger();
   return EXIT_SUCCESS;

@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-#include "../orderedList/orderedList.h"
+#include "orderedList.h"
 
 #define FILENAMESIZE 64
 
@@ -18,6 +18,7 @@ typedef struct ch_through{
   time_t time_started;
   time_t time_finished;
   unsigned int chunk_size;
+  unsigned int bytesLeft;
   char chunk_name[FILENAMESIZE];
   struct ch_through *next;
 }chunk_list_s;

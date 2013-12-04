@@ -15,7 +15,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
 #define CMNDLNSTRLEN 36
 
 typedef struct{

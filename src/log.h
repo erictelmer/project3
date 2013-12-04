@@ -33,9 +33,10 @@ FILE *open_log(FILE *log, const char *path);
 // log_proxy: function to write to the proxy log file
 // Parameters:
 // 		file: proxy logfile to write to
-// 		message: to write to the log file
+// 		chunk_list_s *chunk
+// 		stream_s *st
 //
-void log_proxy(FILE *file, const char *message, ...);
+void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st, char *ser);
 
 //
 // log_dns: function to write to the dns log file

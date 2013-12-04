@@ -12,8 +12,8 @@ FILE *fp;
 
 		if (list == NULL)
 		{
-				printf("Bitrate List is null");
-				return -1;
+			printf("Bitrate List is null");
+			return -1;
 		}
 
 		fp = fopen("/var/www/vod/big_buck_bunny.f4m", "r");
@@ -23,32 +23,42 @@ FILE *fp;
 			if (strstr(line, "bitrate=")) //found bitrate in a line
 				{
 					num = strchr(line, '"'); //num = "###"
-					num = num + 1;					 //num = ###"
+					num = num + 1;		 //num = ###"
 					num = strtok(num, "\""); //num = ###
-					addNum(list, atoi(num));			 //add bitrate to bitrateList
+					addNum(list, atoi(num)); //add bitrate to bitrateList
 				}
 			}
 
 		return 1;
 }
 
+int getLowestBitrate(orderedList *list){
+	orderedList *blist = list;
+	int br = 0;
+
+	if(blist->start != NULL){
+		br = blist->start->num;
+	}
+	
+	return br;
+}
+
 // Function to find the best bitrate based on throughput
 // Takes in the bitrateList and calculated throughput
 int getBitrate(int tput, orderedList *list){
 
-	orderedList *blist = list;
+	orderedNode *bnode = list->start;
 	//calculate highest bitrate connection can support
 	int maxBR = tput/1.5;
-	int br = 0;
 
-	while(blist->start != NULL && blist->start->num <= maxBR){	
-			if(blist->start->num > br){
-				br = blist->start->num;
-				blist->start = blist->start->next;
-			}
+	while(bnode->next != NULL){	
+			if (bnode->next->num <= maxBR)
+				bnode = bnode->next;
+			else
+				break;
 	}
 
-	return br;
+	return bnode->num;
 
 }
 
