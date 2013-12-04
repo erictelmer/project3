@@ -11,6 +11,8 @@
 #include <netdb.h>
 #include <sys/types.h>
 
+#include "dnsMessaging.h"
+
 #define BUFLEN 1500
 #define PORT 8000
 #define IPLEN 36
