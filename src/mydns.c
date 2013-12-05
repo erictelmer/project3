@@ -38,7 +38,7 @@ int resolve(const char *node, const char *service,
   char ipbits[4];
   unsigned int reqlen;
   struct sockaddr_in from;
-  struct addrinfo hints;
+  struct addrinfo myhints;
   socklen_t addrlen = sizeof(from);
 
 
@@ -50,7 +50,7 @@ int resolve(const char *node, const char *service,
   *res = malloc(sizeof(struct addrinfo));
   
   memset(req, 0, REQSIZE);
-  fillRequestHeader(req);
+  fillRequestHeaderTemplate(req);
   putID(req, ID);
   question = getEndOfHeader(req);
   fillQuestionTemplate(question);
@@ -61,7 +61,7 @@ int resolve(const char *node, const char *service,
 
   memset(req, 0 , REQSIZE);
 
-  reqlen = recvfrom(listener, req, REQSIZE, 0, (struct sockaddr *) &from, &addrlen);
+  reqlen = recvfrom(sock, req, REQSIZE, 0, (struct sockaddr *) &from, &addrlen);
 
   if (reqlen <= 0)
     return -1;
@@ -92,14 +92,14 @@ int resolve(const char *node, const char *service,
     return -1;
   }
 
-  getRDATA(resource, ipbits);
+  getRDATA(answer, ipbits);
 
-  memset(hints, 0, sizeof(struct addrinfo));
-  hints.ai_flags = AI_PASSIVE;
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
+  memset(&myhints, 0, sizeof(struct addrinfo));
+  myhints.ai_flags = AI_PASSIVE;
+  myhints.ai_family = AF_INET;
+  myhints.ai_socktype = SOCK_STREAM;
 
-  getaddrinfo(NULL, service, &hints, res);
+  getaddrinfo(NULL, service, &myhints, res);
 
   return 0;
 }
