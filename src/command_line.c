@@ -1,5 +1,11 @@
-
-
+/******************************************************************************
+ *                                                                            *
+ *  command_line.c                                                            *
+ *                                                                            *
+ *  Description: This file contains the description and methods for           *
+ *       parsing the command line arguments.			              *
+ *                                                                            *
+ *****************************************************************************/
 
 #include <assert.h>
 #include <netdb.h>
@@ -13,7 +19,6 @@
 #include <arpa/inet.h>
 #include "command_line.h"
 
-
 int printHelp(){
   printf("\nusage: ./proxy <log> <alpha> <listen-port> <fake-ip> <dns-ip> <dns-port> <www-ip>\n\n\
 log: The file path to which you should log the messages to.\n\n\
@@ -25,8 +30,6 @@ dns-port: UDP port DNS server listens on.\n\n\
 www-ip: [optional] Your proxy should accept an optional argument specifying the IP address of the web server from which it should request video chunks.\n");
     return -1;
 }
-
-
 
 int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   
@@ -63,7 +66,6 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   }
   if(inet_pton(AF_INET, input, &commandLine->fake_ip) == 0)
     return printHelp();
-  // memset(input, 0, sizeof(input));
 
   //dns-ip
   if (strlen(argv[5]) >= sizeof(input))
@@ -74,15 +76,12 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
   if (inet_pton(AF_INET, input, &commandLine->dns_ip) == 0)
     return printHelp();
 
-
   //dns_port
   if (sscanf(argv[6],"%d",&inputInt) < 1){
     commandLine->dns_port = htons(inputInt);
     return printHelp();
   }   
   commandLine->dns_port = inputInt;
-
-
   
   //www-ip
   if (argc == 8){
@@ -92,15 +91,6 @@ int parseCommandLine(int argc, char*argv[], command_line_s *commandLine){
       return printHelp();
     }
   }
-  /*else {
-    struct addrinfo hints, *res;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    
-    getaddrinfo("video.cs.cmu.edu", "port", &hints, &res);
-
-  }*/
   if(inet_pton(AF_INET, input, &commandLine->www_ip) == 0)
     return printHelp();
       

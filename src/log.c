@@ -1,10 +1,10 @@
 /******************************************************************************
- *                                                       		      *
- *  log.c                                                       	      *
+ * 						                                                      		      *
+ *  log.c      				                                                 	      *
  *                                                              							*
  *  Description: This file contains the description and methods for						*
- *  		 creating a log file and writing to it with the expected			*
- *  		 format as specified in the handout for Project 3							* *																																						 *
+ *  		 creating a log file and writing to it with the expected							*
+ *  		 format as specified in the handout for Project 3											*
  *																																						*
  *  Code reused and modified from Lauren's Project 1													*
  *                                                              							*
@@ -47,13 +47,15 @@ void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st, char *ser){
   //bitrate
   int br = getBitrate(st->current_throughput, st->available_bitrates);
   
-  //server-ip
+  //server-ip: given as *ser
 
   //Print log
   fprintf(log, "%d\t%f\t%d\t%f\t%d\t%s\t%s\n", cur, dur, tput, avg, br, ser, chunk->chunk_name);
   fflush(log);
 }
 
+// When DNS Server works, this will be modified to log correctly.
+// Behaves exactly as log_msg
 void log_dns(FILE *log, const char *message, ...){
 	time_t rawtime; 
 	//struct tm *timeinfo;
