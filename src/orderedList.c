@@ -16,7 +16,7 @@ int parseXML(orderedList *list){
 			return -1;
 		}
 
-		fp = fopen("/var/www/vod/big_buck_bunny.f4m", "r");
+		fp = fopen("big_buck_bunny.f4m", "r");
 		char line[1024];
 		char *num;
 		while (fgets(line, sizeof(line), fp)){
