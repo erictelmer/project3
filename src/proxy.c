@@ -282,7 +282,7 @@ int startChunk(connection_list_s *connection, char *chunkName){
 	}
   memcpy(chunk->chunk_name, chunkName, strlen(chunkName) + 1);
 
-  time(&chunk->time_started);
+  gettimeofday(&chunk->time_started, NULL);
   return 0;
 }
 
@@ -290,13 +290,21 @@ int startChunk(connection_list_s *connection, char *chunkName){
 int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s commandLine){
   chunk_list_s *chunk = connection->chunk_throughputs;
   double duration;
-  double throughput;
+  unsigned int throughput;
   float alpha = stream->alpha;
 
-  time(&chunk->time_finished);
-  duration = difftime(chunk->time_finished, chunk->time_started);
+  gettimeofday(&chunk->time_finished, NULL);
+
+	duration = ((chunk->time_finished.tv_sec - chunk->time_started.tv_sec) * 1000000.0
+						 + (chunk->time_finished.tv_usec - chunk->time_started.tv_usec)) / 1000000.0;
+
   throughput = (chunk->chunk_size / duration) * (8.0 / 1000);
+
+	printf("throughput: %d\n", throughput);
+
   stream->current_throughput = (throughput * alpha) + ((1.0 - alpha) * stream->current_throughput); 
+
+	printf("avg tput: %d\n", stream->current_throughput);
 
   //Log to proxy_log in correct format
   char *ser = inet_ntoa(commandLine.www_ip);

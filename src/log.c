@@ -32,13 +32,12 @@ void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st, char *ser){
   time_t rawtime;
   time(&rawtime);
 
-	int cur = time(&chunk->time_finished);  
+	int cur = chunk->time_finished.tv_sec;
 
   //calculate duration
-	float dur = difftime(chunk->time_finished, chunk->time_started);
+  double dur = ((chunk->time_finished.tv_sec - chunk->time_started.tv_sec) * 1000000.0
+             + (chunk->time_finished.tv_usec - chunk->time_started.tv_usec)) / 1000000.0;
 
-//  float dur = time(&chunk->time_finished) - time(&chunk->time_started);
-  
   //calculate throughput for current chunk
   unsigned int tput = (chunk->chunk_size / dur)*(8.0/1000);
   

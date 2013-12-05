@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/time.h>
 
 #include "throughput_connections.h"
 #include "command_line.h"

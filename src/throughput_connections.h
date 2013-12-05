@@ -15,8 +15,8 @@
 #define FILENAMESIZE 64
 
 typedef struct ch_through{
-  time_t time_started;
-  time_t time_finished;
+  struct timeval time_started;
+  struct timeval time_finished;
   unsigned int chunk_size;
   unsigned int bytesLeft;
   char chunk_name[FILENAMESIZE];
