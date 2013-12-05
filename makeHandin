@@ -1,0 +1,9 @@
+if [ -d "handin" ]; then
+   rm -rf handin
+fi
+mkdir handin
+cp Makefile handin
+cp big_buck_bunny.f4m handin
+cp -r src handin/
+cp README handin
+tar -cvf team11.tar handin
