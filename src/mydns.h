@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include "dnsMessaging.h"
 
 /**
  * Initialize your client DNS library with the IP address and port number of
