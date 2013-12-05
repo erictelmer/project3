@@ -147,9 +147,20 @@ void putRDLENGTH(char *resource, unsigned short RDLENGTH){
   *(unsigned short *)(resource + nameLen + 8) = RDLENGTH;
 }
 
+unsigned short getRDLENGTH(char *resource){
+  unsigned char nameLen = getNameLen(resource);
+  return *(unsigned short *)(resource + nameLen + 8);
+}
+
 void putRDATA(char *resource, unsigned char *RDATA, unsigned short RDLENGTH){
   unsigned char nameLen = getNameLen(resource);
   memcpy(resource + nameLen + 10, RDATA, RDLENGTH);
+}
+
+//Assumes data is 4 octets
+void getRDATA(char *resource, char *RDATA){
+  unsigned char nameLen = getNameLen(resource);
+  memcpy(RDATA, resource + nameLen + 10, 4);
 }
 
 char *getEndOfResource(char *resource){
@@ -161,6 +172,7 @@ char *getEndOfResource(char *resource){
 void fillRequestHeaderTemplate(char *header){
   memset(header, 0, 12);
   putQR(header, 0);
+  putOPCODE(header, 0);
   putAA(header, 0);
   putRD(header, 0);
   putRA(header, 0);
