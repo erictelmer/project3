@@ -450,6 +450,7 @@ int main(int argc, char* argv[])
 	 				printf("Received header request from browser:\n%s\n\n", header);
 
           if (ret > 0){
+<<<<<<< HEAD
 						//GET request for .f4m file
 						//Send GET for ... _nolist.f4m
 				    if ((get = strstr(header, "big_buck_bunny.f4m")) != NULL){
@@ -463,8 +464,6 @@ int main(int argc, char* argv[])
 	  			  //Modify for current tput and start new chunk
 	    			if ((get = strstr(header, "Seg")) != NULL){
 
-							printf("MY GET: %s\n", get);
-		
 							// /vod/###SegX-FragY
 							char *chunkName;
 							char chunk[64];
@@ -493,6 +492,7 @@ int main(int argc, char* argv[])
         }
 	
         if (sock == connection->server_sock){
+<<<<<<< HEAD
 				  log_msg(log, "Received request from server\n");
 
 	  			memset(buf, 0, BUF_SIZE);
@@ -580,6 +580,6 @@ int main(int argc, char* argv[])
     } // end WHILE(1)
 
   close_socket(browserListener);
-  //endLogger();
+      //endLogger();
   return EXIT_SUCCESS;
 }
