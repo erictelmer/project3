@@ -1,9 +1,11 @@
 /******************************************************************************
-* proxy.c                                                               *
+* proxy.ci			                                                              *
 *                                                                             *
-* Description: This file contains the C source code for a video streaming proxy                                          *
+* Description: This file contains the C source code for 											*
+* 						 a video streaming proxy  																		  *
 *                                                                             *
 * Authors:Eric Telmer <eit@andrew.cmu.edu>                                    *
+* 				Lauren Milisits <lvm@andrew.cmu.edu>																*
 *                                                                             *
 *******************************************************************************/
 
@@ -91,7 +93,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   char str[50];
   addr_size = sizeof(browser_addr);
 
-  printf("Attempting to accept connection\n");
+  log_msg(log, "Attempting to accept connection\n");
   //  Log(p_log,"Attempting to accept connection\n");
 
   if(*stream == NULL){//new stream!
@@ -122,14 +124,14 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   if (bind(server_sock, (struct sockaddr*)&client_addr, addr_size) < 0) {
     char tmp[80];
     inet_ntop(AF_INET, &client_addr.sin_addr, tmp, 80);
-    printf("Socket: %d\nBind addr: %s\nport: %d\n", server_sock, tmp, ntohs(client_addr.sin_port)); 
-    printf("Bind failed\n");
+    log_msg(log, "Socket: %d\nBind addr: %s\nport: %d\n", server_sock, tmp, ntohs(client_addr.sin_port)); 
+    log_msg(log, "Bind failed\n");
     perror("bind"); 
     exit(EXIT_FAILURE);
   }
 
   if (connect(server_sock, (struct sockaddr*)&(*stream)->server_addr, addr_size))
-		printf("Connect failed\n");
+		log_msg(log, "Connect failed\n");
 
   //accept new socket to browser
   if ((browser_sock = accept(browserListener, (struct sockaddr *) &browser_addr,
@@ -143,7 +145,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
   //create new connection adn add it to stream
   connection = newConnection(browser_sock, server_sock);
   addConnectionToStream(connection, *stream);
-  printf("Added connections on seckets b:%d,s:%d\n",connection->browser_sock, connection->server_sock); 
+  log_msg(log, "Added connections on sockets b:%d,s:%d\n",connection->browser_sock, connection->server_sock); 
 
 
   //Add socket to browser to fdset
@@ -187,18 +189,17 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
     FD_CLR(connection->server_sock, master);
     FD_CLR(connection->browser_sock, master);
 
-    printf("Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
+    log_msg(log, "Closing connection associated with sockets %d,%d because of %d\n", connection->server_sock, connection->browser_sock, fd);
 
     removeConnectionFromStream(connection, stream);
     freeConnection(connection);
 
-    printf("FDSET: ");
     for(i=0; i<=*fdmax; i++){
       if(FD_ISSET(i, master)){
-        printf(", %d", i);
+        log_msg(log, "FD_SET: %d", i);
       }
     }
-    printf("\n");
+
 
     //change fdmax
   }
@@ -232,7 +233,7 @@ int setupBrowserListenerSocket(int * plistener, unsigned short port){
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = INADDR_ANY;
  
-  printf("Binding to port:%d\n", port);
+//  printf("Binding to port:%d\n", port);
  
   /* servers bind sockets to ports---notify the OS they accept connections */
   if (bind(listener, (struct sockaddr *) &addr, sizeof(addr))){
@@ -261,11 +262,8 @@ int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int ind
 {
   char *endBuf = malloc(sizeof(char) * bufstrlen);
   memcpy(endBuf, buf + index + deleteLen, bufstrlen + 1 - index - deleteLen);
-	printf("ENDBUF:%s\n", endBuf);
   memcpy(buf + index, str, replaceLen);
-	printf("BUF1:%s\n", buf);
   memcpy(buf + index + replaceLen /*- deleteLen*/, endBuf, bufstrlen + 1 - index - deleteLen);
-	printf("BUF2:%s\n", buf);
   free(endBuf);
   return bufstrlen + replaceLen - deleteLen;
 }
@@ -289,20 +287,20 @@ int startChunk(connection_list_s *connection, char *chunkName){
 }
 
 //assuming only 1 chunk active at once
-int finishChunk(stream_s *stream, connection_list_s *connection){
+int finishChunk(stream_s *stream, connection_list_s *connection, command_line_s commandLine){
   chunk_list_s *chunk = connection->chunk_throughputs;
   double duration;
   double throughput;
   float alpha = stream->alpha;
+
   time(&chunk->time_finished);
   duration = difftime(chunk->time_finished, chunk->time_started);
   throughput = (chunk->chunk_size / duration) * (8.0 / 1000);
-  stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
+  stream->current_throughput = (throughput * alpha) + ((1.0 - alpha) * stream->current_throughput); 
 
   //Log to proxy_log in correct format
-  printf("FUCK LOG\n");
- // log_proxy(p_log, chunk, stream);
-	printf("FUCKED LOG\n");
+  char *ser = inet_ntoa(commandLine.www_ip);
+  log_proxy(p_log, chunk, stream, ser);
 
   removeChunkFromConnections(chunk, connection);
   //beware of freeing the entire list if concurrent chunks
@@ -414,7 +412,7 @@ int main(int argc, char* argv[])
 				  header[x] = '\0';
 
 	  			log_msg(log, "Received request from browser:\n%s\n\n", header);
-	 				printf("Received header request from browser:\n%s\n\n", header);
+//	 				printf("Received header request from browser:\n%s\n\n", header);
 
           if (ret > 0){
 						//GET request for .f4m file
@@ -423,7 +421,7 @@ int main(int argc, char* argv[])
 							stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
 							unsigned int index = strstr(buf, ".f4m") - buf;
 							ret = replaceString(buf, ret, "_nolist", index, 0, strlen("_nolist") );
-							printf("buf:%s\n", buf);
+	//						printf("buf:%s\n", buf);
 						}
 
 				    //Get request is for /vod/###SegX-FragY
@@ -438,14 +436,14 @@ int main(int argc, char* argv[])
 
 							unsigned int index = 0;
 							int br = getBitrate(stream->current_throughput, stream->available_bitrates); //###
-							printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
+		//					printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
 							snprintf(bit, 16, "%d", br); //convert br into string
 
 							ret = replaceString(chunkName + strlen("/vod/"), ret, bit, index, intLen, strlen(bit));
 							memcpy(chunk, chunkName, strstr(buf, " HTTP") - chunkName);
 							chunk[strstr(buf, " HTTP") - chunkName] = '\0';
 
-							printf("Chunkname sent to start chunk: %s\n", chunk); 
+			//				printf("Chunkname sent to start chunk: %s\n", chunk); 
 							startChunk(connection, chunk);
 						}
 						sendResponse(connection->server_sock, buf, ret);
@@ -466,7 +464,7 @@ int main(int argc, char* argv[])
 				  int x, contentLength;
 
 					if (ret <= 0) {
-						printf("Continuing!\n");
+				//		printf("Continuing!\n");
 						continue;
 					}
 
@@ -475,7 +473,7 @@ int main(int argc, char* argv[])
 					}
 
 					if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
-						printf("Is HTTP\n");
+			//			printf("Is HTTP\n");
 						if ((p = strstr(buf, "Connection: ")) != NULL){
 	   					p = p + strlen("Connection: ");
 				     	memcpy(p, close, strlen(close));
@@ -495,9 +493,9 @@ int main(int argc, char* argv[])
 				   		}
 	  				}		
 	 
-						printf("TYPE:%s\n", type); 	  
+		//				printf("TYPE:%s\n", type); 	  
          	 	if (ret > 0){
-	      			printf("Received %d:\n%s\n",ret, buf);
+	  //    			printf("Received %d:\n%s\n",ret, buf);
 							//If text/xml, set tput to be min
 			  	 	 	if( strstr(type, "text/xml") != NULL){
 								stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
@@ -514,7 +512,7 @@ int main(int argc, char* argv[])
 										hlen = hlen + strlen("\n\r\n\r");
 										unsigned int h = hlen - buf;
 										unsigned int bytesRead = ret - h;
-										printf("bytesRead: %d\nbytesTotal: %d\n", bytesRead, contentLength);
+		//								printf("bytesRead: %d\nbytesTotal: %d\n", bytesRead, contentLength);
 										connection->chunk_throughputs->bytesLeft = contentLength - bytesRead;
 									}
 								}
@@ -523,14 +521,14 @@ int main(int argc, char* argv[])
 		  			}
 					} // end IF "HTTP/1.1"
 					else{ // still reading same request chunk
-						printf("Reading video data\nBuf:\n%s\nRet: %d\n", buf, ret);
-						printf("Chunk throughputs: %p\n", connection->chunk_throughputs);
+	//					printf("Reading video data\nBuf:\n%s\nRet: %d\n", buf, ret);
+	//					printf("Chunk throughputs: %p\n", connection->chunk_throughputs);
 						if(connection->chunk_throughputs != NULL){
 							connection->chunk_throughputs->bytesLeft = connection->chunk_throughputs->bytesLeft - ret;
 							if (connection->chunk_throughputs->bytesLeft == 0){
-								printf("***FINISHING CHUNK***\n");
-								finishChunk(stream, connection);
-								printf("BYE\n");
+	//							printf("***FINISHING CHUNK***\n");
+								finishChunk(stream, connection, commandLine);
+	//							printf("BYE\n");
 							}
 						}					
 						sendResponse(connection->browser_sock, buf, ret);

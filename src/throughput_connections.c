@@ -144,8 +144,8 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
   
   chunk_list_s *curr;
 	connectionList->chunk_throughputs = NULL;
-/*
-  if (connectionList->chunk_throughputs == NULL){//no chunks in list
+
+/*  if (connectionList->chunk_throughputs == NULL){//no chunks in list
     return;
   } 
   

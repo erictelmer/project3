@@ -36,7 +36,7 @@ FILE *open_log(FILE *log, const char *path);
 // 		chunk_list_s *chunk
 // 		stream_s *st
 //
-void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st);
+void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st, char *ser);
 
 //
 // log_dns: function to write to the dns log file

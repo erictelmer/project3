@@ -27,28 +27,31 @@ FILE *open_log(FILE *log, const char *path){
 }
 
 
-void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st){
+void log_proxy(FILE *log, chunk_list_s *chunk, stream_s *st, char *ser){
 
   time_t rawtime;
   time(&rawtime);
-  
+
+	int cur = time(&chunk->time_finished);  
+
   //calculate duration
-  float dur = time(&chunk->time_finished) - time(&chunk->time_started);
+	float dur = difftime(chunk->time_finished, chunk->time_started);
+
+//  float dur = time(&chunk->time_finished) - time(&chunk->time_started);
   
   //calculate throughput for current chunk
-  int tput = (chunk->chunk_size / dur)*(8.0/1000);
+  unsigned int tput = (chunk->chunk_size / dur)*(8.0/1000);
   
   //current EWMA tput estimate in Kbps
-  int avg = st->current_throughput;
+  double avg = st->current_throughput;
   
   //bitrate
   int br = getBitrate(st->current_throughput, st->available_bitrates);
   
   //server-ip
-  //name of the file proxy requested
-  
+
   //Print log
-  fprintf(log, "%lu\t%f\t%d\t%d\t%d\n", (uintmax_t)&rawtime, dur, tput, avg, br);
+  fprintf(log, "%d\t%f\t%d\t%f\t%d\t%s\t%s\n", cur, dur, tput, avg, br, ser, chunk->chunk_name);
   fflush(log);
 }
 
