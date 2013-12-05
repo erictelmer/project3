@@ -9,42 +9,6 @@
 
 #include "proxy.h"
 
-/* 
-
-Everything commented out below is in the proxy.h file
-proxy.c should still compile
-To be removed before final submission
-
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#include "proxy.h"
-
-#include <openssl/rsa.h>
-#include <openssl/crypto.h>
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-
-#include "log.h"
-#include "generateResponse.h"
-
-
-#define CHK_NULL(x) if ((x)==NULL) {logString("NULL ERROR"); exit (1);}
-#define CHK_ERR(err,s) if ((err)==-1) { logString("%s error", s);perror(s); exit(1); }
-#define CHK_SSL(err) if ((err)==-1) {  logString("SSL ERROR");exit(2); }
-#define FREE(x,s) //fprintf(stderr,"freeing %s @ %p\n",s,x); free(x);
-*/
-
 static FILE *log, *p_log, *dns_log;
 int port_offset;
 
@@ -59,6 +23,7 @@ int close_socket(int sock){
 
 void sigINThandler(int sig){
 	close_socket(3);
+	exit(1);
 }
 
 void leave(void){
@@ -335,11 +300,13 @@ int finishChunk(stream_s *stream, connection_list_s *connection){
   stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
 
   //Log to proxy_log in correct format
-  log_proxy(p_log, chunk, stream);
+  printf("FUCK LOG\n");
+ // log_proxy(p_log, chunk, stream);
+	printf("FUCKED LOG\n");
 
   removeChunkFromConnections(chunk, connection);
   //beware of freeing the entire list if concurrent chunks
-  freeChunkList(chunk);
+  free(chunk);
   return 0;
 }
 
@@ -450,7 +417,6 @@ int main(int argc, char* argv[])
 	 				printf("Received header request from browser:\n%s\n\n", header);
 
           if (ret > 0){
-<<<<<<< HEAD
 						//GET request for .f4m file
 						//Send GET for ... _nolist.f4m
 				    if ((get = strstr(header, "big_buck_bunny.f4m")) != NULL){
@@ -470,20 +436,15 @@ int main(int argc, char* argv[])
 							chunkName = strstr(buf, "/vod/");
 							int intLen =  strstr(buf, "Seg") - (chunkName + strlen("/vod/"));
 
-							printf("intLen: %d\n", intLen);
 							unsigned int index = 0;
-
 							int br = getBitrate(stream->current_throughput, stream->available_bitrates); //###
 							printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
 							snprintf(bit, 16, "%d", br); //convert br into string
-
-							printf("WHAT IS THIS:%s\n", chunkName + strlen("/vod/"));
 
 							ret = replaceString(chunkName + strlen("/vod/"), ret, bit, index, intLen, strlen(bit));
 							memcpy(chunk, chunkName, strstr(buf, " HTTP") - chunkName);
 							chunk[strstr(buf, " HTTP") - chunkName] = '\0';
 
-							printf("buf after bitrate adaption:\n%s\n", buf);
 							printf("Chunkname sent to start chunk: %s\n", chunk); 
 							startChunk(connection, chunk);
 						}
@@ -492,7 +453,6 @@ int main(int argc, char* argv[])
         }
 	
         if (sock == connection->server_sock){
-<<<<<<< HEAD
 				  log_msg(log, "Received request from server\n");
 
 	  			memset(buf, 0, BUF_SIZE);
@@ -511,7 +471,6 @@ int main(int argc, char* argv[])
 					}
 
 					if (strstr(buf, "Not Modified") != NULL){
-						printf("Clear Cache\n");
 						exit(4);
 					}
 
@@ -549,7 +508,6 @@ int main(int argc, char* argv[])
 							if ( strstr(type, "video/f4f") != NULL){
 								if ((len = strstr(buf, "Content-Length: ")) != NULL){
 									len = len + strlen("Content-Length: ");
-									printf("LENGTH_S: %s\n", len);
 									contentLength = atoi(len);
 									connection->chunk_throughputs->chunk_size = contentLength;
 									if ((hlen = strstr(buf, "\r\n\r\n")) != NULL){
@@ -561,17 +519,20 @@ int main(int argc, char* argv[])
 									}
 								}
 							}
-							printf("Sending\n");
 							sendResponse(connection->browser_sock, buf, ret);
-							printf("Sent\n");
 		  			}
 					} // end IF "HTTP/1.1"
 					else{ // still reading same request chunk
 						printf("Reading video data\nBuf:\n%s\nRet: %d\n", buf, ret);
 						printf("Chunk throughputs: %p\n", connection->chunk_throughputs);
-						/*if ((connection->chunk_throughputs->bytesLeft -= ret) == 0){
-							finishChunk(stream, connection);
-						}	*/				
+						if(connection->chunk_throughputs != NULL){
+							connection->chunk_throughputs->bytesLeft = connection->chunk_throughputs->bytesLeft - ret;
+							if (connection->chunk_throughputs->bytesLeft == 0){
+								printf("***FINISHING CHUNK***\n");
+								finishChunk(stream, connection);
+								printf("BYE\n");
+							}
+						}					
 						sendResponse(connection->browser_sock, buf, ret);
 					}
         }//end server sock

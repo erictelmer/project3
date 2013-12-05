@@ -47,23 +47,18 @@ int getLowestBitrate(orderedList *list){
 // Takes in the bitrateList and calculated throughput
 int getBitrate(int tput, orderedList *list){
 
-	orderedList *blist = list;
+	orderedNode *bnode = list->start;
 	//calculate highest bitrate connection can support
 	int maxBR = tput/1.5;
-	int br = 0;
 
-	if(blist->start != NULL){
-		br = blist->start->num;
+	while(bnode->next != NULL){	
+			if (bnode->next->num <= maxBR)
+				bnode = bnode->next;
+			else
+				break;
 	}
 
-	while(blist->start != NULL && blist->start->num <= maxBR){	
-			if(blist->start->num > br){
-				br = blist->start->num;
-				blist->start = blist->start->next;
-			}
-	}
-
-	return br;
+	return bnode->num;
 
 }
 

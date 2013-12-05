@@ -41,10 +41,10 @@ void main(int argc, char *argv[]){
 	int t5 = getBitrate(1050, blist5);
 
 	printf("1: tput: 1500, maxBR: 1000, br: %d\n", t1);
-  printf("2: tput: 15, maxBR: 10, br: %d\n", t2);
-  printf("3: tput: 10, maxBR: 6.66, br: %d\n", t3);
-  printf("4: tput: 15000, maxBR: 10000, br: %d\n", t4);
-  printf("5: tput: 1050, maxBR: 700, br: %d\n", t5);
+	printf("2: tput: 15, maxBR: 10, br: %d\n", t2);
+	printf("3: tput: 10, maxBR: 6.66, br: %d\n", t3);
+	printf("4: tput: 15000, maxBR: 10000, br: %d\n", t4);
+	printf("5: tput: 1050, maxBR: 700, br: %d\n", t5);
 
 
 }

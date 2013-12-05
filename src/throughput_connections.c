@@ -143,7 +143,8 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
   CHK_NULL(chunkList, "rmChnk:ch"); CHK_NULL(connectionList,"rmChnk:con");
   
   chunk_list_s *curr;
-
+	connectionList->chunk_throughputs = NULL;
+/*
   if (connectionList->chunk_throughputs == NULL){//no chunks in list
     return;
   } 
@@ -166,7 +167,7 @@ void removeChunkFromConnections(chunk_list_s *chunkList, connection_list_s *conn
   if(curr->next == chunkList){
     curr->next = curr->next->next;
   }
-  
+  */
   return;
 }
 
