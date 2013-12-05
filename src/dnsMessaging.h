@@ -24,9 +24,15 @@ char *getEndOfHeader(char *message);
 
 void putID(char *message, unsigned short ID);
 
+unsigned short getID(char *message);
+
 void putQR(char *message, unsigned char QR);
 
+unsigned char getQR(char *message);
+
 void putOPCODE(char *message, unsigned char OPCODE);
+
+unsigned char getOPCODE(char *message);
 
 void putAA(char *message, unsigned char AA);
 
@@ -38,11 +44,17 @@ void putRA(char*message,unsigned char RA);
 
 void putZ(char*message,unsigned char Z);
 
-void putRDCODE(char*message,unsigned char RDCODE);
+void putRCODE(char*message,unsigned char RCODE);
+
+unsigned char getRCODE(char *message);
 
 void putQDCOUNT(char *message, unsigned short QDCOUNT);
 
+unsigned short getQDCOUNT(char *message);
+
 void putANCOUNT(char *message, unsigned short ANCOUNT);
+
+unsigned short getANCOUNT(char *message);
 
 void putNSCOUNT(char *message, unsigned short NSCOUNT);
 
@@ -50,7 +62,7 @@ void putARCOUNT(char *message, unsigned short ARCOUNT);
 
 //Question section format
 
-void putQNAME(char *question, unsigned char length, unsigned char *name);
+void putQNAME(char *question);
 
 void putQTYPE(char *question, unsigned short QTYPE);
 
@@ -60,7 +72,7 @@ char *getEndOfQuestion(char *question);
 
 //Resource Record format
 
-void putNAME(char *resource, unsigned char length, unsigned char *NAME);
+void putNAME(char *resource);
 
 void putTYPE(char *resource, unsigned short TYPE);
 
@@ -76,8 +88,12 @@ char *getEndOfResource(char *resource);
 
 void fillRequestHeaderTemplate(char *header);
 
+void fillResponseHeaderTemplate(char *header);
+
+//QName is hardcoded
 void fillQuestionTemplate(char *question);
 
+//Name is hardcoded
 void fillResourceRecordTemplate(char *resource);
 
 int isVideoCsCmuEdu(char *name);
