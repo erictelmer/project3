@@ -159,16 +159,32 @@ int main(int argc, char * argv[])
   /*if (parseCommandLine(argc, argv, &commandLine) < 0)
     return -1;
   if(getIpsFromFile(commandLine.servers, ips) < 0)
+
   return -1;*/
   
+  /*  struct addrinfo *res = malloc(sizeof(struct addrinfo));
+  struct sockaddr_in tmp;
+  char myipstr1[] = "3.0.0.1";
+  char tmpstr[36];
+  //inet_ntop(AF_INET, &ipbits, myipstr, addrlen);
+
+  memset(&myhints, 0, sizeof(struct addrinfo));
+  //myhints.ai_flags = AI_PASSIVE;                                           
+  myhints.ai_family = AF_INET;
+  myhints.ai_socktype = SOCK_STREAM;
+
+  getaddrinfo(myipstr1, "9999", &myhints, &res);
+  memcpy(&tmp, (res)->ai_addr, sizeof(struct sockaddr_in));
+  inet_ntop(AF_INET, &tmp.sin_addr, tmpstr, addrlen);
+  printf("please: %s\n", tmpstr);*/
+  
+
   addrlen = sizeof(addr);
   FD_ZERO(&readfds);
   parseCommandLine(argc, argv, &commandLine);
   getIpsFromFile(commandLine.servers, ips, &numIps);
 
-  printf("Ip1: %s\n", ips->ipstr);
-  printf("Ip2: %s\n", ips->next->ipstr);
-
+  
   if ((sizeof(int) != 4) || (sizeof(short) != 2) || (sizeof(void*) != 8)){
     printf("Unexpected sizes...UHOH\n");
   }
@@ -188,8 +204,7 @@ int main(int argc, char * argv[])
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   inet_ntop(AF_INET, &addr.sin_addr, myipstr, 36);
-  printf("Ip: %s\n", myipstr);
-  printf("Port: %d\n", ntohs(addr.sin_port));
+  
 
   if(bind(listener, (struct sockaddr *)&addr, addrlen) < 0){
     perror("bind");

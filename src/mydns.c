@@ -94,12 +94,15 @@ int resolve(const char *node, const char *service,
 
   getRDATA(answer, ipbits);
 
+  char myipstr[36];
+  inet_ntop(AF_INET, &ipbits, myipstr, addrlen);
+
   memset(&myhints, 0, sizeof(struct addrinfo));
-  myhints.ai_flags = AI_PASSIVE;
+  //myhints.ai_flags = AI_PASSIVE;
   myhints.ai_family = AF_INET;
   myhints.ai_socktype = SOCK_STREAM;
 
-  getaddrinfo(NULL, service, &myhints, res);
+  getaddrinfo(myipstr, service, &myhints, res);
 
   return 0;
 }
