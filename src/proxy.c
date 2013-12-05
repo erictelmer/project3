@@ -202,7 +202,7 @@ int acceptBrowserServerConnectionToStream(int browserListener, fd_set * master, 
 int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_SIZE], connection_list_s *connection, stream_s *stream){
   int readret;
   int i;
-  if ((readret = recv(fd, *buf, 1, MSG_PEEK)) > 0)//Check if connection closed
+  if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0)//Check if connection closed
     {
       /*if (!FD_ISSET(fd, &write_fds)) {
         memset(*buf,0, BUF_SIZE);
@@ -210,12 +210,9 @@ int receive(int fd, fd_set * master, int *fdmax, int listener, char (* buf)[BUF_
         return -2;
         }*/
       //Http handling//
-      if ((readret = recv(fd, *buf, BUF_SIZE, 0)) > 0){
+      
         //logString("Read data from fd:%d", fd);
-        return readret;
-      }
-      //End gttp handling//
-      memset(*buf,0,BUF_SIZE);
+      return readret;
     } 
  
   if (readret <= 0){//If connection closed
@@ -299,8 +296,11 @@ int replaceString(char *buf, unsigned int bufstrlen, char *str, unsigned int ind
 {
   char *endBuf = malloc(sizeof(char) * bufstrlen);
   memcpy(endBuf, buf + index + deleteLen, bufstrlen + 1 - index - deleteLen);
+	printf("ENDBUF:%s\n", endBuf);
   memcpy(buf + index, str, replaceLen);
-  memcpy(buf + index + replaceLen - deleteLen, endBuf, bufstrlen + 1 - index - deleteLen);
+	printf("BUF1:%s\n", buf);
+  memcpy(buf + index + replaceLen /*- deleteLen*/, endBuf, bufstrlen + 1 - index - deleteLen);
+	printf("BUF2:%s\n", buf);
   free(endBuf);
   return bufstrlen + replaceLen - deleteLen;
 }
@@ -311,8 +311,12 @@ int startChunk(connection_list_s *connection, char *chunkName){
   //Check for NULL
   chunk_list_s *chunk = newChunkList();
   addChunkToConnections(chunk, connection);
-
+	chunk->bytesLeft = 0;
   //+1 to include NULL char
+  if (strlen(chunkName) + 1 > 64){
+		printf("Chunk name too big\n");
+		exit(4);
+	}
   memcpy(chunk->chunk_name, chunkName, strlen(chunkName) + 1);
 
   time(&chunk->time_started);
@@ -320,14 +324,14 @@ int startChunk(connection_list_s *connection, char *chunkName){
 }
 
 //assuming only 1 chunk active at once
-int finishChunk(stream_s *stream, connection_list_s *connection, unsigned int chunkSize){
+int finishChunk(stream_s *stream, connection_list_s *connection){
   chunk_list_s *chunk = connection->chunk_throughputs;
   double duration;
   double throughput;
   float alpha = stream->alpha;
   time(&chunk->time_finished);
   duration = difftime(chunk->time_finished, chunk->time_started);
-  throughput = (chunkSize / duration) * (8.0 / 1000);
+  throughput = (chunk->chunk_size / duration) * (8.0 / 1000);
   stream->current_throughput = (throughput * alpha) + ((1 - alpha) * stream->current_throughput); 
 
   //Log to proxy_log in correct format
@@ -435,7 +439,7 @@ int main(int argc, char* argv[])
 
 	  			int x;
 	  			char *get;
-	  			char *bit = malloc(16);
+	  			char bit[16];
 	  			char header[100];
 	  			x = strcspn(buf, "\n");
 				  if (x > 99) x = 99;
@@ -458,17 +462,32 @@ int main(int argc, char* argv[])
 				    //Get request is for /vod/###SegX-FragY
 	  			  //Modify for current tput and start new chunk
 	    			if ((get = strstr(header, "Seg")) != NULL){
-							get = strtok(get, " HTTP"); //get = chunkname (unmodified)
+
+							printf("MY GET: %s\n", get);
+		
+							// /vod/###SegX-FragY
+							char *chunkName;
+							char chunk[64];
+							chunkName = strstr(buf, "/vod/");
+							int intLen =  strstr(buf, "Seg") - (chunkName + strlen("/vod/"));
+
+							printf("intLen: %d\n", intLen);
+							unsigned int index = 0;
+
 							int br = getBitrate(stream->current_throughput, stream->available_bitrates); //###
 							printf("cur tput: %d, found br: %d\n", stream->current_throughput, br);
 							snprintf(bit, 16, "%d", br); //convert br into string
-							get = strcat(bit, get); //###SegX-FragY
-							char *chunk = malloc(strlen(get) + strlen("/vod/") + 1);
-							strcpy(chunk, "/vod/");
-							strcat(chunk, get); // /vod/###SegX-FragY 
+
+							printf("WHAT IS THIS:%s\n", chunkName + strlen("/vod/"));
+
+							ret = replaceString(chunkName + strlen("/vod/"), ret, bit, index, intLen, strlen(bit));
+							memcpy(chunk, chunkName, strstr(buf, " HTTP") - chunkName);
+							chunk[strstr(buf, " HTTP") - chunkName] = '\0';
+
+							printf("buf after bitrate adaption:\n%s\n", buf);
+							printf("Chunkname sent to start chunk: %s\n", chunk); 
 							startChunk(connection, chunk);
-	    			}
-						
+						}
 						sendResponse(connection->server_sock, buf, ret);
 	  			}
         }
@@ -476,23 +495,32 @@ int main(int argc, char* argv[])
         if (sock == connection->server_sock){
 				  log_msg(log, "Received request from server\n");
 
-	  			memset(buf, 0,BUF_SIZE);
+	  			memset(buf, 0, BUF_SIZE);
           ret = receive(sock, &master, &fdmax, browserListener, &buf, connection, stream);
-	  
 				  //Use close to avoid streamlining 
-	  			char *p, *type, *len;
+	  			char *p, *type, *len, *hlen;
 	  			char close[] = "close     ";
 	  			char contentType[] = "Content-Type: ";
 				  char header[100];
 				  memset(header, '\0', 100);
-				  int x;
+				  int x, contentLength;
 
-				  if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
-				   		if ((p = strstr(buf, "Connection: ")) != NULL){
-	   						p = p + strlen("Connection: ");
-				     	 memcpy(p, close, strlen(close));
-	    				}
-	  			
+					if (ret <= 0) {
+						printf("Continuing!\n");
+						continue;
+					}
+
+					if (strstr(buf, "Not Modified") != NULL){
+						printf("Clear Cache\n");
+						exit(4);
+					}
+
+					if (memcmp(buf, "HTTP/1.1", strlen("HTTP/1.1")) == 0){
+						printf("Is HTTP\n");
+						if ((p = strstr(buf, "Connection: ")) != NULL){
+	   					p = p + strlen("Connection: ");
+				     	memcpy(p, close, strlen(close));
+	    			}	
 	   
 	  				// p is a pointer to Content-Type
 				  	p = strstr(buf, contentType);
@@ -505,13 +533,12 @@ int main(int argc, char* argv[])
 
 		    			if ((type = strstr(header, "Content-Type: ")) != NULL){ //found Content-Type
 								type = type + strlen("Content-Type: ");
-								printf("TYPE:%s\n", type);
 				   		}
 	  				}		
-	  
-	  
-         	 if (ret > 0){
-	      				printf("Received %d:\n%s\n",ret, buf);
+	 
+						printf("TYPE:%s\n", type); 	  
+         	 	if (ret > 0){
+	      			printf("Received %d:\n%s\n",ret, buf);
 							//If text/xml, set tput to be min
 			  	 	 	if( strstr(type, "text/xml") != NULL){
 								stream->current_throughput = getBitrate(stream->current_throughput, stream->available_bitrates);
@@ -522,20 +549,35 @@ int main(int argc, char* argv[])
 							if ( strstr(type, "video/f4f") != NULL){
 								if ((len = strstr(buf, "Content-Length: ")) != NULL){
 									len = len + strlen("Content-Length: ");
+									printf("LENGTH_S: %s\n", len);
+									contentLength = atoi(len);
+									connection->chunk_throughputs->chunk_size = contentLength;
+									if ((hlen = strstr(buf, "\r\n\r\n")) != NULL){
+										hlen = hlen + strlen("\n\r\n\r");
+										unsigned int h = hlen - buf;
+										unsigned int bytesRead = ret - h;
+										printf("bytesRead: %d\nbytesTotal: %d\n", bytesRead, contentLength);
+										connection->chunk_throughputs->bytesLeft = contentLength - bytesRead;
+									}
 								}
 							}
-		    			if(1)/*No content length, forward bytes, if == content length, finish chunk */
-							{	}
+							printf("Sending\n");
 							sendResponse(connection->browser_sock, buf, ret);
+							printf("Sent\n");
 		  			}
-					}//end of if for http 1.1
-					else{
+					} // end IF "HTTP/1.1"
+					else{ // still reading same request chunk
+						printf("Reading video data\nBuf:\n%s\nRet: %d\n", buf, ret);
+						printf("Chunk throughputs: %p\n", connection->chunk_throughputs);
+						/*if ((connection->chunk_throughputs->bytesLeft -= ret) == 0){
+							finishChunk(stream, connection);
+						}	*/				
 						sendResponse(connection->browser_sock, buf, ret);
 					}
-        }
+        }//end server sock
 
-      }//End else
-    }//End while(1)
+      } // end ELSE
+    } // end WHILE(1)
 
   close_socket(browserListener);
   //endLogger();
