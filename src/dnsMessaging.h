@@ -82,7 +82,11 @@ void putTTL(char *resource, unsigned int TTL);
 
 void putRDLENGTH(char *resource, unsigned short RDLENGTH);
 
+unsigned short getRDLENGTH(char *resource);
+
 void putRDATA(char *resource, unsigned char *RDATA, unsigned short RDLENGTH);
+
+void getRDATA(char *resource, char *RDATA);
 
 char *getEndOfResource(char *resource);
 

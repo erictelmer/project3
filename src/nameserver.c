@@ -184,7 +184,7 @@ int main(int argc, char * argv[])
   addr.sin_port = htons(commandLine.port);
   inet_pton(AF_INET, commandLine.ipstr, &addr.sin_addr);
 
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  //addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   inet_ntop(AF_INET, &addr.sin_addr, myipstr, 36);
   printf("Ip: %s\n", myipstr);
