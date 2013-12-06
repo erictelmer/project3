@@ -4,6 +4,18 @@
 char cmuName[18] = {0x05, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x02, 0x63, 0x73, 0x03, 0x63, 0x6d, 0x75, 0x03, 0x65, 0x64, 0x75, 0x00};
 
 
+void print_bytes(const void *object, size_t size)
+{
+  size_t i;
+
+  printf("[ ");
+  for(i = 0; i < size; i++)
+  {
+    printf("%02x ", ((const unsigned char *) object)[i] & 0xff);
+  }
+  printf("]\n");
+}
+
 //01 ff 02 ff ff 00
 //namelen = 1
 //name += 1+1, *name = 2
@@ -33,71 +45,75 @@ unsigned short getID(char *message){
 }
 //1 b
 void putQR(char *message, unsigned char QR){
-  message[2] = (message[2] && 0x7f) || ((QR && 0x01) << 7);
+  printf("Before QR, %x\n", (((unsigned char)(message[2])) | ((QR & 0x01) << 7)));
+  print_bytes(message, 12);
+  message[2] = ((message[2] & 0x7f) | ((QR & 0x01) << 7));
+  printf("after QR:\n");
+  print_bytes(message, 12);
 }
 
 unsigned char getQR(char *message){
-  return (message[2] && 0x80) >> 7;
+  return (message[2] & 0x80) >> 7;
 }
 
 void putOPCODE(char *message, unsigned char OPCODE){
-  message[2] = (message[2] && 0x87) || ((OPCODE && 0x0f) << 3);
+  message[2] = (message[2] & 0x87) | ((OPCODE & 0x0f) << 3);
 }
 
 unsigned char getOPCODE(char *message){
-  return (message[2] && 0x78) >> 3;
+  return (message[2] & 0x78) >> 3;
 }
 
 void putAA(char *message, unsigned char AA){
-  message[2] = (message[2] && 0xfb) || ((AA && 0x01) << 2);
+  message[2] = (message[2] & 0xfb) | ((AA & 0x01) << 2);
 }
 
 void putTC(char*message, unsigned char TC){
-  message[2] = (message[2] && 0xfd) || ((TC && 0x01) << 1);
+  message[2] = (message[2] & 0xfd) | ((TC & 0x01) << 1);
 }
 
 void putRD(char*message,unsigned char RD){
-  message[2] = (message[2] && 0xfe) || (RD && 0x01);
+  message[2] = (message[2] & 0xfe) | (RD & 0x01);
 }
 
 void putRA(char*message,unsigned char RA){
-  message[3] = (message[3] && 0x7f) || ((RA && 0x01)<<7);
+  message[3] = (message[3] & 0x7f) | ((RA & 0x01)<<7);
 }
 
 void putZ(char*message,unsigned char Z){
-  message[3] = (message[3] && 0x8f) || ((Z && 0x07)<<4);
+  message[3] = (message[3] & 0x8f) | ((Z & 0x07)<<4);
 }
 
 void putRCODE(char*message,unsigned char RCODE){
-  message[3] = (message[3] && 0xf0) || ((RCODE && 0x0f));
+  message[3] = (message[3] & 0xf0) | ((RCODE & 0x0f));
 }
 
 unsigned char getRCODE(char *message){
-  return (message[3] && 0x0f);
+  return (message[3] & 0x0f);
 }
 
 void putQDCOUNT(char *message, unsigned short QDCOUNT){
-  *(unsigned short *)(message + 4) = QDCOUNT;
+  *(unsigned short *)(message + 4) = htons(QDCOUNT);
 }
 
 unsigned short getQDCOUNT(char *message){
-  return *(unsigned short *)(message + 4);
+  return ntohs(*(unsigned short *)(message + 4));
 }
 
 void putANCOUNT(char *message, unsigned short ANCOUNT){
-  *(unsigned short *)(message + 6) = ANCOUNT;
+  *(unsigned short *)(message + 6) = htons(ANCOUNT);
 }
 
 unsigned short getANCOUNT(char *message){
-  return *(unsigned short *)(message + 6);
+  return ntohs(*(unsigned short *)(message + 6));
 }
 
 void putNSCOUNT(char *message, unsigned short NSCOUNT){
-  *(unsigned short *)(message + 8) = NSCOUNT;
+  *(unsigned short *)(message + 8) = htons(NSCOUNT);
 }
 
 void putARCOUNT(char *message, unsigned short ARCOUNT){
-  *(unsigned short *)(message + 10) = ARCOUNT;
+  *(unsigned short *)(message + 10) = htons(ARCOUNT);
 }
 
 //Question section format
@@ -108,12 +124,12 @@ void putQNAME(char *question){
 
 void putQTYPE(char *question, unsigned short QTYPE){
   unsigned char nameLen = getNameLen(question);
-  *(unsigned short *)(question + nameLen) = QTYPE;
+  *(unsigned short *)(question + nameLen) = htons(QTYPE);
 }
 
 void putQCLASS(char *question, unsigned short QCLASS){
   unsigned char nameLen = getNameLen(question);
-  *(unsigned short *)(question + nameLen + 2) = QCLASS;
+  *(unsigned short *)(question + nameLen + 2) = htons(QCLASS);
 }
 
 char *getEndOfQuestion(char *question){
@@ -129,27 +145,27 @@ void putNAME(char *resource){
 
 void putTYPE(char *resource, unsigned short TYPE){
   unsigned char nameLen = getNameLen(resource);
-  *(unsigned short *)(resource + nameLen) = TYPE;
+  *(unsigned short *)(resource + nameLen) = htons(TYPE);
 }
 
 void putCLASS(char *resource, unsigned short CLASS){
   unsigned char nameLen = getNameLen(resource);
-  *(unsigned short *)(resource + nameLen + 2) = CLASS;
+  *(unsigned short *)(resource + nameLen + 2) = htons(CLASS);
 }
 
 void putTTL(char *resource, unsigned int TTL){
   unsigned char nameLen = getNameLen(resource);
-  *(unsigned int *)(resource + nameLen + 4) = TTL;
+  *(unsigned int *)(resource + nameLen + 4) = htonl(TTL);
 }
 
 void putRDLENGTH(char *resource, unsigned short RDLENGTH){
   unsigned char nameLen = getNameLen(resource);
-  *(unsigned short *)(resource + nameLen + 8) = RDLENGTH;
+  *(unsigned short *)(resource + nameLen + 8) = htons(RDLENGTH);
 }
 
 unsigned short getRDLENGTH(char *resource){
   unsigned char nameLen = getNameLen(resource);
-  return *(unsigned short *)(resource + nameLen + 8);
+  return ntohs(*(unsigned short *)(resource + nameLen + 8));
 }
 
 void putRDATA(char *resource, unsigned char *RDATA, unsigned short RDLENGTH){
@@ -165,7 +181,7 @@ void getRDATA(char *resource, char *RDATA){
 
 char *getEndOfResource(char *resource){
   unsigned char nameLen = getNameLen(resource);
-  unsigned short RDLENGTH = *((unsigned short *)(resource + nameLen + 8));
+  unsigned short RDLENGTH = getRDLENGTH(resource);
   return resource + nameLen + RDLENGTH + 10;
 }
 
@@ -212,7 +228,7 @@ void fillResourceRecordTemplate(char *resource){
 }
 
 int isVideoCsCmuEdu(char *name){
-  if (memcmp(name, cmuName, 18))
+  if (memcmp(name, cmuName, 18) == 0)
     return 1;
   return 0;
 }

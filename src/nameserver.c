@@ -37,6 +37,8 @@ void printHelp(){
   printf("Improper usage\n");
 }
 
+
+
 int parseCommandLine(int argc, char *argv[], command_line_s *commandLine){
   //Check NULLS
   int r;
@@ -99,7 +101,6 @@ ip_s *getIpNum(ip_s *ips, int num){
 int getIpsFromFile(char *filename, ip_s *ips, int *numIps){
   FILE *file;
   char line[IPLEN];
-  int readbytes;
   ip_s *prev = ips;
 
   *numIps = 0;
@@ -184,7 +185,7 @@ int main(int argc, char * argv[])
   addr.sin_port = htons(commandLine.port);
   inet_pton(AF_INET, commandLine.ipstr, &addr.sin_addr);
 
-  //addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   inet_ntop(AF_INET, &addr.sin_addr, myipstr, 36);
   printf("Ip: %s\n", myipstr);
@@ -210,12 +211,11 @@ int main(int argc, char * argv[])
       continue;
     }
     
-    printf("About to recieve\n");
+
     readret = recvfrom(listener, buf, BUFLEN, 0, (struct sockaddr *) &from, &addrlen);
-    printf("Recieved\n");
 
     if (readret > 0){
-      printf("\nRecieved:\n%s", buf);
+
       unsigned short ID = getID(buf);
       char *question;
       char *resource;
@@ -228,6 +228,13 @@ int main(int argc, char * argv[])
       question = getEndOfHeader(buf);
       if (getQR(buf) != 0){
 	//send RCODE 3?
+	RCODE = 1;
+	memset(buf, 0, BUFLEN);
+	fillResponseHeaderTemplate(buf);
+	putID(buf, ID);
+	putANCOUNT(buf, 0);
+	putRCODE(buf, RCODE);
+	sendlen = getEndOfHeader(buf) - buf;
 	continue;
       }
       else if (!isVideoCsCmuEdu(question)){
@@ -238,6 +245,7 @@ int main(int argc, char * argv[])
 	putID(buf, ID);
 	putANCOUNT(buf, 0);
 	putRCODE(buf, RCODE);
+	sendlen = getEndOfHeader(buf) - buf;
 	//continue;
       }
       else{
@@ -255,13 +263,17 @@ int main(int argc, char * argv[])
 	memset(buf, 0, BUFLEN);
 	fillResponseHeaderTemplate(buf);
 	putID(buf, ID);
-	//putRCODE
 	resource = getEndOfHeader(buf);
+
 	fillResourceRecordTemplate(resource);
+
 	putRDLENGTH(resource, RDLENGTH);
+	
 	putRDATA(resource, ipbits, RDLENGTH);
 	sendlen = getEndOfResource(resource) - buf;
+
       }
+
       sendto(listener, buf, sendlen, 0, (const struct sockaddr *)&from, addrlen);
       //SEND
     }
