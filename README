@@ -1,1 +1,64 @@
-Fill In
+# README
+# This file contains a description of the files for Project 3
+
+=== Authors ===
+Lauren Milisits	(lvm)
+Eric Telmer 		(eit)
+
+
+=== Description ====
+
+This folder contains all of the source code and files for Project 3: Video CDN.
+At the current stage of development, the proxy can run and support bitrate 
+adaptation. The proxy also creates a logfile of the directed format.
+
+
+=== Files ===
+
+README:
+	The file that you are currently reading.
+	Contains a brief description of the files and how to run the proxy.
+
+Makefile:
+	Compiles all of the source code to run the proxy and dns server
+
+writeup.pdf:
+	A writeup discussing various tradeoffs from varying the value 
+	of alpha [0 - 1.0] in the bitrate adaptation proxy.
+
+src/ :
+	Contains the source code for the proxy and dns server
+
+src/command_line.[c/h]:
+	Description and methods used to parse the command line args
+
+src/log.[c/h]:
+	Description and methods used to open a log and write to an error log or 
+	the proxy log. When DNS is implemented, the function log_dns will be 
+	modified to log correctly based on the project guidelines.
+
+src/orderedList.[c/h]:
+	Description and methods used to create and add to an orderedList. 
+	The orderedList is also used to parse the XML file and get the available
+	bitrates from the big_buck_bunny.f4m file.
+
+src/throughput_connections.[c/h]:
+	Description and methods used to create and work with a throughput connection.
+
+src/proxy.[c/h]:
+	Description and methods used to set up and run the proxy.
+	This source code also contains the main method for connecting the proxy, 
+	streaming video, adapting bitrates, modifying chunk names, and writing 
+	the information to a proxy log.
+
+	Procedure to run the proxy:
+		1. Make
+		2. ./proxy <log> <alpha> <listen-port> <fake-ip> <dns-ip> <dns-port> <www-ip>
+
+src/mydns.[c/h]:
+	Description and methods used to set up and run the dns server.
+
+src/dnsMessaging.[c/h]:
+	Description and methods used to create a proper dns message.
+
+
